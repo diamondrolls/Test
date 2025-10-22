@@ -69,8 +69,6 @@
   <div id="nft-grid" class="nft-grid"></div>
 </main>
 
-
-
 <script>
 /* ==============================
    CONFIGURATION
@@ -88,19 +86,25 @@ const NFT_ABI = [
 let provider, signer, account, nftContract;
 
 /* ==============================
-   WALLETCONNECT CONNECTION
+   CONNECT WALLET (MetaMask first, fallback to WalletConnect)
 ============================== */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
-    const wcProvider = await window.EthereumProvider.init({
-      projectId: "1e5dc4fcf271be7666a255bf76a4c275", // your WalletConnect Cloud Project ID
-      chains: [1], // Ethereum mainnet
-      showQrModal: true
-    });
+    if (window.ethereum) {
+      // ✅ Try MetaMask first
+      provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+    } else {
+      // ⚠️ Fallback to WalletConnect
+      const wcProvider = await window.EthereumProvider.init({
+        projectId: "YOUR_REAL_WALLETCONNECT_PROJECT_ID", // replace when ready
+        chains: [1],
+        showQrModal: true
+      });
+      await wcProvider.connect();
+      provider = new ethers.BrowserProvider(wcProvider);
+    }
 
-    await wcProvider.connect();
-
-    provider = new ethers.BrowserProvider(wcProvider);
     signer = await provider.getSigner();
     account = await signer.getAddress();
 
@@ -111,8 +115,8 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
     loadNFTs();
 
   } catch (err) {
-    console.error("WalletConnect connection failed:", err);
-    alert("Failed to connect wallet. Try again inside MetaMask browser.");
+    console.error("Wallet connection failed:", err);
+    alert("Failed to connect. Try again inside MetaMask or use WalletConnect QR.");
   }
 });
 
