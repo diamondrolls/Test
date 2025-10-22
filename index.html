@@ -46,8 +46,7 @@
   .nft-info { padding: 12px 14px 16px; text-align: center; }
   .nft-info h3 { margin: 8px 0 4px; font-size: 1.1rem; font-weight: 600; }
   .nft-info p { margin: 4px 0; font-size: 0.9rem; color: var(--text-light); }
-  .nft-actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; opacity: 0; transform: translateY(10px); transition: all 0.2s ease; }
-  .nft-card:hover .nft-actions { opacity: 1; transform: translateY(0); }
+  .nft-actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
   button { border: none; background: var(--accent); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
   button:hover { background: #2563eb; }
   @media (max-width: 500px) { header h1 { font-size: 1.4rem; } .nft-card img { height: 180px; } }
@@ -86,18 +85,16 @@ const NFT_ABI = [
 let provider, signer, account, nftContract;
 
 /* ==============================
-   CONNECT WALLET (MetaMask first, fallback to WalletConnect)
+   CONNECT WALLET (MetaMask first, WalletConnect fallback)
 ============================== */
 document.getElementById("connectBtn").addEventListener("click", async () => {
   try {
     if (window.ethereum) {
-      // ✅ Try MetaMask first
       provider = new ethers.BrowserProvider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
     } else {
-      // ⚠️ Fallback to WalletConnect
       const wcProvider = await window.EthereumProvider.init({
-        projectId: "YOUR_REAL_WALLETCONNECT_PROJECT_ID", // replace when ready
+        projectId: "YOUR_REAL_WALLETCONNECT_PROJECT_ID",
         chains: [1],
         showQrModal: true
       });
@@ -116,7 +113,7 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
 
   } catch (err) {
     console.error("Wallet connection failed:", err);
-    alert("Failed to connect. Try again inside MetaMask or use WalletConnect QR.");
+    alert("Failed to connect wallet. Try again inside MetaMask browser.");
   }
 });
 
@@ -143,21 +140,34 @@ async function loadNFTs() {
     return;
   }
 
-  grid.innerHTML = data.map(nft => `
-    <div class="nft-card">
-      <img src="${nft.image_url}" alt="${nft.collection || 'NFT'}" />
-      <div class="nft-info">
-        <h3>${nft.collection || 'Untitled'} #${nft.token_id ?? ''}</h3>
-        <p>${nft.description || 'No description available'}</p>
-        <p><strong>Price:</strong> ${nft.price_eth ?? 'N/A'} ETH</p>
-        <div class="nft-actions">
-          <button onclick="buyNFT(${nft.token_id}, ${nft.price_eth || 0})">Buy ($6 fee)</button>
-          <button onclick="sellNFT(${nft.token_id})">Sell</button>
-          <button onclick="transferNFT(${nft.token_id})">Transfer ($6 fee)</button>
+  const userAddress = account ? account.toLowerCase() : null;
+
+  grid.innerHTML = data.map(nft => {
+    let buttons = "";
+
+    if (!userAddress) {
+      buttons = "<p>🔒 Connect wallet to interact.</p>";
+    } else if (nft.owner?.toLowerCase() === userAddress) {
+      buttons = `
+        <button onclick="sellNFT(${nft.token_id})">Sell</button>
+        <button onclick="transferNFT(${nft.token_id})">Transfer ($6 fee)</button>
+      `;
+    } else {
+      buttons = `<button onclick="buyNFT(${nft.token_id}, ${nft.price_eth || 0})">Buy ($6 fee)</button>`;
+    }
+
+    return `
+      <div class="nft-card">
+        <img src="${nft.image_url}" alt="${nft.collection || 'NFT'}" />
+        <div class="nft-info">
+          <h3>${nft.collection || 'Untitled'} #${nft.token_id ?? ''}</h3>
+          <p>${nft.description || 'No description available'}</p>
+          <p><strong>Price:</strong> ${nft.price_eth ?? 'N/A'} ETH</p>
+          <div class="nft-actions">${buttons}</div>
         </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
 
 /* ==============================
@@ -202,7 +212,7 @@ async function transferNFT(tokenId) {
   const recipient = prompt("Enter recipient wallet address:");
   if (!recipient) return;
   try {
-    const feeEth = 6 / 1000; // $6 fee
+    const feeEth = 6 / 1000;
     const feeTx = await signer.sendTransaction({
       to: NFT_CONTRACT_ADDRESS,
       value: ethers.parseEther(feeEth.toString())
