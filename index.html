@@ -124,7 +124,7 @@ async function connectWallet() {
       account = accounts[0];
     } else {
       const provider = new WalletConnectProvider.default({
-        rpc: { 1: "https://mainnet.infura.io/v3/d71dd33696d449e488a88bdc02a6093c" }
+        rpc: { 1: "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID" }
       });
       await provider.enable();
       web3 = new Web3(provider);
