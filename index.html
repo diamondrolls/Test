@@ -7,72 +7,55 @@
 
 <!-- Supabase & Web3.js & WalletConnect -->
 <script src="https://unpkg.com/@supabase/supabase-js"></script>
-<script src="https://cdn.jsdelivr.net/npm/web3@1.10.1/dist/web3.min.js"></script>
-<script src="https://unpkg.com/@walletconnect/web3-provider/dist/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
 
 <style>
   :root {
-    --bg: #0f1115;
-    --card-bg: #1a1c20;
-    --text-dark: #f8fafc;
-    --text-light: #a0aec0;
-    --accent: #3bff6e; /* bright green accent */
-    --shadow: 0 4px 12px rgba(0,255,0,0.3);
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text-dark: #1e293b;
+    --text-light: #475569;
+    --accent: #3b82f6;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
-
+  .homepage{
+    border-style: outset;
+    width: 270px;
+    height: 100px;
+    background-image: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg');
+    background-size: 270px 100px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 100px;
+    color: white;
+    font-weight: bold;
+  }
+  * { box-sizing: border-box; }
   body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text-dark); }
-  header { background: var(--card-bg); text-align: center; padding: 18px 12px; border-bottom: 1px solid #2d2f33; position: sticky; top: 0; z-index: 10; }
+  header { background: var(--card-bg); text-align: center; padding: 18px 12px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
   h1 { font-size: 1.8rem; margin: 0; }
   #walletStatus { margin-top: 8px; font-size: 0.9rem; color: var(--text-light); }
   #connectBtn { margin-top: 6px; }
   main { padding: 24px; max-width: 1200px; margin: 0 auto; }
   h2 { margin: 0 0 20px; font-size: 1.4rem; font-weight: 600; }
-
   .nft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
-  .nft-card { 
-    background: var(--card-bg); 
-    border-radius: 16px; 
-    overflow: hidden; 
-    position: relative;
-    box-shadow: 0 0 20px rgba(0,255,0,0.2); 
-    transition: transform 0.3s, box-shadow 0.3s; 
-    cursor: pointer; 
-  }
-  .nft-card:hover { 
-    transform: translateY(-8px); 
-    box-shadow: 0 0 40px rgba(0,255,0,0.6); 
-  }
-  .nft-card img { width: 100%; height: 220px; object-fit: cover; display: block; border-bottom: 2px solid var(--accent); }
+  .nft-card { background: var(--card-bg); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; position: relative; }
+  .nft-card:hover { transform: translateY(-4px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
+  .nft-card img { width: 100%; height: 220px; object-fit: cover; display: block; }
   .nft-info { padding: 12px 14px 16px; text-align: center; }
   .nft-info h3 { margin: 8px 0 4px; font-size: 1.1rem; font-weight: 600; }
   .nft-info p { margin: 4px 0; font-size: 0.9rem; color: var(--text-light); }
   .nft-actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
-  button { border: none; background: var(--accent); color: var(--bg); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
-  button:hover { background: #00ff55; }
-
-  /* Notification styling */
-  #notification {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #0f1115;
-    color: #3bff6e;
-    padding: 12px 20px;
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(0,255,0,0.5);
-    font-weight: bold;
-    display: none;
-    z-index: 100;
-  }
-
-  @media (max-width: 500px) { .nft-card img { height: 180px; } }
+  button { border: none; background: var(--accent); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
+  button:hover { background: #2563eb; }
+  @media (max-width: 500px) { header h1 { font-size: 1.4rem; } .nft-card img { height: 180px; } }
 </style>
 </head>
-
 <body>
+
 <header>
-  <a href='https://diamondrolls.github.io/thepremiumway/'>
+  <a href='https://diamondrolls.github.io/thepremiumway/'> 
     <div class="homepage">Home</div>
   </a>
   <h1>NFT Marketplace</h1>
@@ -85,14 +68,12 @@
   <div id="nft-grid" class="nft-grid"></div>
 </main>
 
-<div id="notification"></div>
-
 <script>
 /* ==============================
    CONFIGURATION
 ============================== */
 const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4"; // replace
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
@@ -100,21 +81,12 @@ const NFT_ABI = [
   { "constant":true,"inputs":[{"name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"name":"","type":"address"}],"type":"function" },
   { "constant":false,"inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"type":"function" }
 ];
+const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 
 let web3, account, nftContract;
 
 /* ==============================
-   NOTIFICATION
-============================== */
-function showNotification(msg) {
-  const n = document.getElementById("notification");
-  n.textContent = msg;
-  n.style.display = "block";
-  setTimeout(() => n.style.display = "none", 3000);
-}
-
-/* ==============================
-   CONNECT WALLET
+   CONNECT WALLET (MetaMask + WalletConnect)
 ============================== */
 async function connectWallet() {
   try {
@@ -124,7 +96,7 @@ async function connectWallet() {
       account = accounts[0];
     } else {
       const provider = new WalletConnectProvider.default({
-        rpc: { 1: "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID" }
+        rpc: { 1: "https://mainnet.infura.io/v3/d71dd33696d449e488a88bdc02a6093c" },
       });
       await provider.enable();
       web3 = new Web3(provider);
@@ -133,70 +105,65 @@ async function connectWallet() {
     }
 
     document.getElementById("walletStatus").innerText =
-      `✅ Connected: ${account.slice(0,6)}...${account.slice(-4)}`;
+      `✅ Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
 
     nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
-
     loadNFTs();
-    subscribeRealtimeNFTs();
 
-  } catch(err) {
+  } catch (err) {
     console.error(err);
-    alert("Wallet connection failed.");
+    alert("Failed to connect wallet.");
   }
 }
+
 document.getElementById("connectBtn").addEventListener("click", connectWallet);
 
 /* ==============================
    LOAD NFTs
 ============================== */
 async function loadNFTs() {
-  const { data } = await client.from("nfts").select("*").order("created_at", { ascending: false });
-  if (!data) return;
-  data.forEach(nft => addOrUpdateNFTCard(nft));
-}
-
-/* ==============================
-   ADD OR UPDATE NFT CARD
-============================== */
-function addOrUpdateNFTCard(nft) {
   const grid = document.getElementById("nft-grid");
-  let card = document.getElementById(`nft-${nft.token_id}`);
-  const userAddress = account ? account.toLowerCase() : null;
+  grid.innerHTML = "<p>Loading NFTs...</p>";
 
-  let buttons = "<p>🔒 Connect wallet to interact.</p>";
-  if (userAddress) {
-    if (nft.owner?.toLowerCase() === userAddress) {
-      buttons = `<button onclick="sellNFT(${nft.token_id})">Sell</button>
-                 <button onclick="transferNFT(${nft.token_id})">Transfer</button>`;
-    } else {
-      buttons = `<button onclick="buyNFT(${nft.token_id}, ${nft.price_eth || 0})">Buy</button>`;
-    }
+  const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    grid.innerHTML = "<p>⚠️ Error loading NFTs.</p>";
+    return;
+  }
+  if (!data || data.length === 0) {
+    grid.innerHTML = "<p>No NFTs found.</p>";
+    return;
   }
 
-  const html = `
-    <div class="nft-card" id="nft-${nft.token_id}">
-      <img src="${nft.image_url}" alt="${nft.collection || 'NFT'}" />
-      <div class="nft-info">
-        <h3>${nft.collection || 'Untitled'} #${nft.token_id ?? ''}</h3>
-        <p>${nft.description || 'No description available'}</p>
-        <p><strong>Price:</strong> ${nft.price_eth ?? 'N/A'} ETH</p>
-        <div class="nft-actions">${buttons}</div>
+  const userAddress = account ? account.toLowerCase() : null;
+
+  grid.innerHTML = data.map(nft => {
+    let buttons = "";
+    if (!userAddress) {
+      buttons = "<p>🔒 Connect wallet to interact.</p>";
+    } else if (nft.owner?.toLowerCase() === userAddress) {
+      buttons = `
+        <button onclick="sellNFT(${nft.token_id})">Sell</button>
+        <button onclick="transferNFT(${nft.token_id})">Transfer ($6 fee)</button>
+      `;
+    } else {
+      buttons = `<button onclick="buyNFT(${nft.token_id}, ${nft.price_eth || 0})">Buy ($6 fee)</button>`;
+    }
+
+    return `
+      <div class="nft-card">
+        <img src="${nft.image_url}" alt="${nft.collection || 'NFT'}" />
+        <div class="nft-info">
+          <h3>${nft.collection || 'Untitled'} #${nft.token_id ?? ''}</h3>
+          <p>${nft.description || 'No description available'}</p>
+          <p><strong>Price:</strong> ${nft.price_eth ?? 'N/A'} ETH</p>
+          <div class="nft-actions">${buttons}</div>
+        </div>
       </div>
-    </div>
-  `;
-
-  if (card) card.outerHTML = html;
-  else grid.insertAdjacentHTML('beforeend', html);
-}
-
-/* ==============================
-   REAL-TIME NFT UPDATES
-============================== */
-function subscribeRealtimeNFTs() {
-  client.from('nfts').on('*', payload => {
-    addOrUpdateNFTCard(payload.new);
-  }).subscribe();
+    `;
+  }).join("");
 }
 
 /* ==============================
@@ -205,15 +172,13 @@ function subscribeRealtimeNFTs() {
 async function buyNFT(tokenId, priceEth) {
   if (!account) return alert("Connect wallet first.");
   try {
-    const value = web3.utils.toWei(String(priceEth), "ether");
-    await web3.eth.sendTransaction({ from: account, to: NFT_CONTRACT_ADDRESS, value });
+    const totalEth = web3.utils.toWei((Number(priceEth) + 6/1000).toString(), 'ether');
+    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: totalEth });
+
     await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", tokenId);
-    addOrUpdateNFTCard({ token_id: tokenId, owner: account, price_eth: priceEth });
-    showNotification("✅ NFT purchased!");
-  } catch(err) {
-    console.error(err);
-    showNotification("❌ Purchase failed");
-  }
+    alert("✅ NFT purchased! Payment sent.");
+    loadNFTs();
+  } catch(err) { console.error(err); alert("Buy failed: " + err.message); }
 }
 
 /* ==============================
@@ -224,8 +189,8 @@ async function sellNFT(tokenId) {
   const priceEth = prompt("Enter sale price in ETH:");
   if (!priceEth) return;
   await client.from("nfts").update({ sold: false, price_eth: priceEth, owner: account }).eq("token_id", tokenId);
-  addOrUpdateNFTCard({ token_id: tokenId, owner: account, price_eth: priceEth });
-  showNotification("✅ NFT listed for sale!");
+  alert("✅ NFT listed for sale!");
+  loadNFTs();
 }
 
 /* ==============================
@@ -236,15 +201,19 @@ async function transferNFT(tokenId) {
   const recipient = prompt("Enter recipient wallet address:");
   if (!recipient) return;
   try {
+    const feeEth = web3.utils.toWei((6/1000).toString(), 'ether');
+    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: feeEth });
+
     await nftContract.methods.safeTransferFrom(account, recipient, tokenId).send({ from: account });
+
     await client.from("nfts").update({ owner: recipient }).eq("token_id", tokenId);
-    addOrUpdateNFTCard({ token_id: tokenId, owner: recipient });
-    showNotification("✅ NFT transferred!");
-  } catch(err) {
-    console.error(err);
-    showNotification("❌ Transfer failed");
-  }
+    alert("✅ NFT transferred! Fee sent.");
+    loadNFTs();
+  } catch(err) { console.error(err); alert("Transfer failed: " + err.message); }
 }
+
+loadNFTs();
 </script>
+
 </body>
 </html>
