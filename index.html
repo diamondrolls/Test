@@ -457,23 +457,15 @@ function init3DScene() {
   const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
   directionalLight.position.set(50, 100, 50);
   directionalLight.castShadow = true;
-  directionalLight.shadow.mapSize.width = 2048;
-  directionalLight.shadow.mapSize.height = 2048;
-  directionalLight.shadow.camera.near = 0.5;
-  directionalLight.shadow.camera.far = 500;
-  directionalLight.shadow.camera.left = -100;
-  directionalLight.shadow.camera.right = 100;
-  directionalLight.shadow.camera.top = 100;
-  directionalLight.shadow.camera.bottom = -100;
   scene.add(directionalLight);
   
-  // Create player avatar (floating 5px above ground)
+  // Create player avatar
   createPlayerAvatar();
   
   // Create terrain
   createTerrain();
   
-  // Add environment objects (trees, rocks, buildings, mountains)
+  // Add environment objects
   createEnvironment();
   
   // Create spaceships
@@ -518,9 +510,9 @@ function createPlayerAvatar() {
   const avatarMaterial = new THREE.MeshLambertMaterial({ color: 0xff6b6b });
   playerAvatar = new THREE.Mesh(capsuleGeometry, avatarMaterial);
   
-  // Position avatar at camera position but locked to ground + 5px
+  // Position avatar at camera position but locked to ground
   playerAvatar.position.copy(camera.position);
-  playerAvatar.position.y = 0.5; // 5px above ground (0.5 in Three.js units)
+  playerAvatar.position.y = 0.5; // 5px above ground
   
   scene.add(playerAvatar);
 }
@@ -545,20 +537,19 @@ function createTerrain() {
   });
   const cityGround = new THREE.Mesh(cityGeometry, cityMaterial);
   cityGround.rotation.x = -Math.PI / 2;
-  cityGround.position.set(-70, 0.01, 0); // Slightly above main ground to avoid z-fighting
+  cityGround.position.set(-70, 0.01, 0);
   cityGround.receiveShadow = true;
   scene.add(cityGround);
   
-  // Add hills and mountains on the other side
+  // Add hills and mountains
   const vertices = groundGeometry.attributes.position.array;
   for (let i = 0; i < vertices.length; i += 3) {
     const x = vertices[i];
     const z = vertices[i + 2];
     
-    // Create mountains on the right side (positive x)
+    // Create mountains on the right side
     if (x > 20) {
-      // Higher mountains further to the right
-      const mountainHeight = (x - 20) / 80 * 15; // Up to 15 units high
+      const mountainHeight = (x - 20) / 80 * 15;
       vertices[i + 1] = Math.sin(x * 0.1) * Math.cos(z * 0.1) * mountainHeight;
     } else if (x < -40) {
       // Flat city area
@@ -585,12 +576,11 @@ function createEnvironment() {
   const mountainGeometry = new THREE.ConeGeometry(8, 15, 6);
   const mountainMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
   
-  // Create trees in the central area
+  // Create trees
   for (let i = 0; i < 30; i++) {
     const x = (Math.random() - 0.5) * 100;
     const z = (Math.random() - 0.5) * 100;
     
-    // Avoid placing trees in city or high mountains
     if (x > -60 && x < 60) {
       const tree = new THREE.Mesh(treeGeometry, treeMaterial);
       const terrainHeight = getTerrainHeight(x, z);
@@ -602,7 +592,7 @@ function createEnvironment() {
     }
   }
   
-  // Create rocks scattered around
+  // Create rocks
   for (let i = 0; i < 20; i++) {
     const x = (Math.random() - 0.5) * 150;
     const z = (Math.random() - 0.5) * 150;
@@ -616,7 +606,7 @@ function createEnvironment() {
     collisionObjects.push(rock);
   }
   
-  // Create buildings in the city area
+  // Create buildings
   for (let i = 0; i < 15; i++) {
     const x = -70 + (Math.random() - 0.5) * 50;
     const z = (Math.random() - 0.5) * 50;
@@ -629,7 +619,7 @@ function createEnvironment() {
     collisionObjects.push(building);
   }
   
-  // Create mountains on the right side
+  // Create mountains
   for (let i = 0; i < 8; i++) {
     const x = 60 + Math.random() * 60;
     const z = (Math.random() - 0.5) * 80;
@@ -645,7 +635,7 @@ function createEnvironment() {
 }
 
 function createSpaceships() {
-  // Create Earth spaceship (on top of a mountain)
+  // Create Earth spaceship
   const spaceshipGroup = new THREE.Group();
   
   // Spaceship body
@@ -676,7 +666,7 @@ function createSpaceships() {
   scene.add(earthSpaceship);
   environmentObjects.push(earthSpaceship);
   
-  // Create Moon spaceship (will be added when we create the moon)
+  // Create Moon spaceship
   moonSpaceship = spaceshipGroup.clone();
   moonSpaceship.userData = { type: 'spaceship', destination: 'earth' };
 }
@@ -697,8 +687,12 @@ function getTerrainHeight(x, z) {
 
 function createMoonEnvironment() {
   // Clear Earth environment
-  environmentObjects.forEach(obj => scene.remove(obj));
-  environmentObjects = [];
+  environmentObjects.forEach(obj => {
+    if (obj !== earthSpaceship && obj !== moonSpaceship) {
+      scene.remove(obj);
+    }
+  });
+  environmentObjects = environmentObjects.filter(obj => obj === earthSpaceship || obj === moonSpaceship);
   collisionObjects = [];
   
   // Create moon surface
@@ -747,12 +741,19 @@ function createMoonEnvironment() {
   // Update location indicator
   document.getElementById('location-indicator').textContent = 'Moon';
   isOnMoon = true;
+  
+  // Hide mini-map on moon
+  document.getElementById('mini-map').style.display = 'none';
 }
 
 function createEarthEnvironment() {
   // Clear moon environment
-  environmentObjects.forEach(obj => scene.remove(obj));
-  environmentObjects = [];
+  environmentObjects.forEach(obj => {
+    if (obj !== earthSpaceship && obj !== moonSpaceship) {
+      scene.remove(obj);
+    }
+  });
+  environmentObjects = environmentObjects.filter(obj => obj === earthSpaceship || obj === moonSpaceship);
   collisionObjects = [];
   
   // Recreate Earth environment
@@ -763,6 +764,11 @@ function createEarthEnvironment() {
   scene.add(earthSpaceship);
   environmentObjects.push(earthSpaceship);
   
+  // Remove moon spaceship from Earth
+  if (scene.children.includes(moonSpaceship)) {
+    scene.remove(moonSpaceship);
+  }
+  
   // Change background back to sky
   scene.background = new THREE.Color(0x87CEEB);
   scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
@@ -770,6 +776,9 @@ function createEarthEnvironment() {
   // Update location indicator
   document.getElementById('location-indicator').textContent = 'Earth';
   isOnMoon = false;
+  
+  // Show mini-map on Earth
+  document.getElementById('mini-map').style.display = 'block';
 }
 
 function initMiniMap() {
@@ -809,18 +818,20 @@ function initMiniMap() {
   const nftIndicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x3B82F6 });
   
   window.updateMiniMap = function() {
-    if (isOnMoon) return; // No mini-map on moon
+    if (isOnMoon) return;
     
     // Update player position
     playerIndicator.position.x = camera.position.x;
     playerIndicator.position.z = camera.position.z;
     
     // Clear previous NFT indicators
+    const toRemove = [];
     miniMapScene.children.forEach((child, index) => {
       if (child.userData && child.userData.isNFTIndicator) {
-        miniMapScene.children.splice(index, 1);
+        toRemove.push(child);
       }
     });
+    toRemove.forEach(child => miniMapScene.remove(child));
     
     // Add current NFT indicators
     nftObjects.forEach(nft => {
@@ -848,7 +859,7 @@ function checkCollision(newPosition) {
   const avatarBox = new THREE.Sphere(newPosition, avatarRadius);
   
   for (const obj of collisionObjects) {
-    if (obj.geometry.boundingSphere) {
+    if (obj.geometry && obj.geometry.boundingSphere) {
       const objSphere = obj.geometry.boundingSphere.clone();
       objSphere.applyMatrix4(obj.matrixWorld);
       
@@ -895,14 +906,14 @@ function animate() {
     }
   }
   
-  // Update player avatar position (locked to ground + 5px)
+  // Update player avatar position
   if (playerAvatar) {
     playerAvatar.position.x = camera.position.x;
     playerAvatar.position.z = camera.position.z;
     
     if (isOnMoon) {
       // On moon, position avatar on surface
-      playerAvatar.position.y = 50.5; // On moon surface + 0.5 units
+      playerAvatar.position.y = 50.5;
     } else {
       // On Earth, use terrain height
       playerAvatar.position.y = getTerrainHeight(camera.position.x, camera.position.z) + 0.5;
@@ -913,7 +924,6 @@ function animate() {
   if (!isMobile) {
     raycaster.setFromCamera(mouse, camera);
   } else {
-    // For mobile, we'll use a fixed direction (forward)
     raycaster.set(camera.position, camera.getWorldDirection(new THREE.Vector3()));
   }
   
@@ -923,7 +933,7 @@ function animate() {
     if (currentIntersected !== intersects[0].object) {
       // Reset previous intersection
       if (currentIntersected) {
-        if (currentIntersected.userData.type === 'spaceship') {
+        if (currentIntersected.userData && currentIntersected.userData.type === 'spaceship') {
           currentIntersected.children.forEach(child => {
             if (child.material && child.material.emissive) {
               child.material.emissive.setHex(currentIntersected.userData.originalEmissive);
@@ -937,7 +947,7 @@ function animate() {
       // Set new intersection
       currentIntersected = intersects[0].object;
       
-      if (currentIntersected.userData.type === 'spaceship') {
+      if (currentIntersected.userData && currentIntersected.userData.type === 'spaceship') {
         // Highlight spaceship
         currentIntersected.userData.originalEmissive = currentIntersected.children[0].material.emissive.getHex();
         currentIntersected.children.forEach(child => {
@@ -958,7 +968,7 @@ function animate() {
     }
   } else {
     if (currentIntersected) {
-      if (currentIntersected.userData.type === 'spaceship') {
+      if (currentIntersected.userData && currentIntersected.userData.type === 'spaceship') {
         currentIntersected.children.forEach(child => {
           if (child.material && child.material.emissive) {
             child.material.emissive.setHex(currentIntersected.userData.originalEmissive);
@@ -1006,27 +1016,10 @@ function createNFTPlane(nftData, position) {
   plane.rotation.y = Math.random() * Math.PI * 2;
   
   // Store NFT data for interaction
-  plane.userData.nftData = nftData;
-  plane.userData.originalEmissive = 0x000000;
+  plane.userData = { nftData: nftData, originalEmissive: 0x000000 };
   
   scene.add(plane);
   nftObjects.push(plane);
-  
-  // Add a subtle glow effect
-  const glowGeometry = new THREE.PlaneGeometry(2.2, 2.2);
-  const glowMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x3b82f6,
-    transparent: true,
-    opacity: 0.3,
-    side: THREE.DoubleSide
-  });
-  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-  glow.position.copy(plane.position);
-  glow.rotation.copy(plane.rotation);
-  scene.add(glow);
-  
-  // Make glow part of the NFT object for interaction
-  plane.userData.glow = glow;
 }
 
 function openNFTModal(nftData) {
@@ -1038,7 +1031,7 @@ function openNFTModal(nftData) {
   let buttons = "";
   if (!account) {
     buttons = "<p>🔒 Connect wallet to interact.</p>";
-  } else if (nftData.owner?.toLowerCase() === account.toLowerCase()) {
+  } else if (nftData.owner && nftData.owner.toLowerCase() === account.toLowerCase()) {
     buttons = `
       <button onclick="sellNFT(${nftData.token_id})">Sell</button>
       <button onclick="transferNFT(${nftData.token_id})">Transfer ($6 fee)</button>
@@ -1058,7 +1051,7 @@ document.getElementById('close-modal').addEventListener('click', function() {
 // Handle click/tap on NFT or spaceship
 document.addEventListener('click', function onClick(event) {
   if ((!isMobile || (isMobile && currentIntersected)) && currentIntersected) {
-    if (currentIntersected.userData.type === 'spaceship') {
+    if (currentIntersected.userData && currentIntersected.userData.type === 'spaceship') {
       // Handle spaceship click
       const destination = currentIntersected.userData.destination;
       if (destination === 'moon') {
@@ -1127,26 +1120,20 @@ async function loadNFTs() {
   // Clear existing NFTs
   nftObjects.forEach(obj => {
     scene.remove(obj);
-    if (obj.userData.glow) {
-      scene.remove(obj.userData.glow);
-    }
   });
   nftObjects = [];
   
-  // Position NFTs randomly across the terrain, spaced out more
+  // Position NFTs randomly across the terrain
   data.forEach((nft, index) => {
-    // Create positions in a wider area with more spacing
     const angle = (index / data.length) * Math.PI * 2;
-    const radius = 20 + Math.random() * 60; // Much wider distribution
+    const radius = 20 + Math.random() * 60;
     
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
     
-    // Add some randomness to positions
     const randomOffsetX = (Math.random() - 0.5) * 30;
     const randomOffsetZ = (Math.random() - 0.5) * 30;
     
-    // Get terrain height at this position
     const terrainHeight = getTerrainHeight(x + randomOffsetX, z + randomOffsetZ);
     
     createNFTPlane(nft, { 
