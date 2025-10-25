@@ -3,12 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>💎 NFT Marketplace</title>
+<title>💎 3D NFT Marketplace</title>
 
 <!-- Supabase & Web3.js & WalletConnect -->
 <script src="https://unpkg.com/@supabase/supabase-js"></script>
 <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
 <script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+
+<!-- Three.js for 3D rendering -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/PointerLockControls.js"></script>
 
 <style>
   :root {
@@ -19,6 +23,7 @@
     --accent: #3b82f6;
     --shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
+  
   .homepage{
     border-style: outset;
     width: 270px;
@@ -30,43 +35,168 @@
     line-height: 100px;
     color: white;
     font-weight: bold;
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
   }
+  
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; color: var(--text-dark); }
-  header { background: var(--card-bg); text-align: center; padding: 18px 12px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 10; }
+  body { 
+    font-family: system-ui, sans-serif; 
+    background: var(--bg); 
+    margin: 0; 
+    padding: 0; 
+    color: var(--text-dark); 
+    overflow: hidden;
+  }
+  
+  header { 
+    background: var(--card-bg); 
+    text-align: center; 
+    padding: 18px 12px; 
+    border-bottom: 1px solid #e2e8f0; 
+    position: absolute; 
+    top: 0; 
+    width: 100%; 
+    z-index: 10; 
+  }
+  
   h1 { font-size: 1.8rem; margin: 0; }
   #walletStatus { margin-top: 8px; font-size: 0.9rem; color: var(--text-light); }
   #connectBtn { margin-top: 6px; }
-  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
-  h2 { margin: 0 0 20px; font-size: 1.4rem; font-weight: 600; }
-  .nft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
-  .nft-card { background: var(--card-bg); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; position: relative; }
-  .nft-card:hover { transform: translateY(-4px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
-  .nft-card img { width: 100%; height: 220px; object-fit: cover; display: block; }
-  .nft-info { padding: 12px 14px 16px; text-align: center; }
-  .nft-info h3 { margin: 8px 0 4px; font-size: 1.1rem; font-weight: 600; }
-  .nft-info p { margin: 4px 0; font-size: 0.9rem; color: var(--text-light); }
-  .nft-actions { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
-  button { border: none; background: var(--accent); color: white; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; transition: background 0.2s; }
-  button:hover { background: #2563eb; }
-  @media (max-width: 500px) { header h1 { font-size: 1.4rem; } .nft-card img { height: 180px; } }
+  
+  #canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  #instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: white;
+    background-color: rgba(0,0,0,0.7);
+    padding: 10px;
+    z-index: 100;
+  }
+  
+  #nft-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 400px;
+    width: 90%;
+  }
+  
+  #nft-modal img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+  
+  #nft-modal h3 {
+    margin: 8px 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  #nft-modal p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    color: var(--text-light);
+  }
+  
+  .nft-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  
+  button {
+    border: none;
+    background: var(--accent);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  button:hover {
+    background: #2563eb;
+  }
+  
+  #close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ef4444;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #close-modal:hover {
+    background: #dc2626;
+  }
+  
+  @media (max-width: 500px) { 
+    header h1 { font-size: 1.4rem; } 
+    #instructions {
+      font-size: 0.8rem;
+    }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <a href='https://diamondrolls.github.io/thepremiumway/'> 
-    <div class="homepage">Home</div>
-  </a>
-  <h1>NFT Marketplace</h1>
+  <h1>3D NFT Gallery</h1>
   <div id="walletStatus">Not connected</div>
   <button id="connectBtn">Connect Wallet</button>
 </header>
 
-<main>
-  <h2>All NFTs</h2>
-  <div id="nft-grid" class="nft-grid"></div>
-</main>
+<a href='https://diamondrolls.github.io/thepremiumway/'> 
+  <div class="homepage">Home</div>
+</a>
+
+<div id="canvas-container"></div>
+
+<div id="instructions">
+  Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press ESC to unlock pointer.
+</div>
+
+<div id="nft-modal">
+  <button id="close-modal">X</button>
+  <img id="modal-image" src="" alt="NFT" />
+  <div class="nft-info">
+    <h3 id="modal-title"></h3>
+    <p id="modal-description"></p>
+    <p><strong>Price:</strong> <span id="modal-price"></span> ETH</p>
+    <div class="nft-actions" id="modal-actions"></div>
+  </div>
+</div>
 
 <script>
 /* ==============================
@@ -84,6 +214,194 @@ const NFT_ABI = [
 const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 
 let web3, account, nftContract;
+
+/* ==============================
+   3D SCENE SETUP
+============================== */
+let scene, camera, renderer, controls;
+let nftObjects = [];
+let raycaster, mouse;
+let currentIntersected = null;
+
+function init3DScene() {
+  // Create scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xf0f9ff);
+  
+  // Create camera
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 5, 10);
+  
+  // Create renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+  
+  // Add lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(10, 20, 15);
+  scene.add(directionalLight);
+  
+  // Create floor
+  const floorGeometry = new THREE.PlaneGeometry(100, 100);
+  const floorMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x94a3b8,
+    roughness: 0.8,
+    metalness: 0.2
+  });
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+  
+  // Add grid helper
+  const gridHelper = new THREE.GridHelper(100, 20, 0x000000, 0x000000);
+  gridHelper.material.opacity = 0.2;
+  gridHelper.material.transparent = true;
+  scene.add(gridHelper);
+  
+  // Set up controls
+  controls = new THREE.PointerLockControls(camera, document.body);
+  
+  // Set up raycaster for object interaction
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+  
+  // Event listeners
+  document.addEventListener('click', function() {
+    if (!controls.isLocked) {
+      controls.lock();
+    }
+  });
+  
+  controls.addEventListener('lock', function() {
+    document.getElementById('instructions').style.display = 'none';
+  });
+  
+  controls.addEventListener('unlock', function() {
+    document.getElementById('instructions').style.display = 'block';
+  });
+  
+  // Handle window resize
+  window.addEventListener('resize', onWindowResize);
+  
+  // Start animation
+  animate();
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  if (controls.isLocked) {
+    // Update raycaster for object interaction
+    raycaster.setFromCamera(mouse, camera);
+    
+    const intersects = raycaster.intersectObjects(nftObjects);
+    
+    if (intersects.length > 0) {
+      if (currentIntersected !== intersects[0].object) {
+        // Reset previous intersection
+        if (currentIntersected) {
+          currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
+        }
+        
+        // Set new intersection
+        currentIntersected = intersects[0].object;
+        currentIntersected.userData.originalEmissive = currentIntersected.material.emissive.getHex();
+        currentIntersected.material.emissive.setHex(0x3b82f6);
+        
+        // Change cursor to pointer
+        document.body.style.cursor = 'pointer';
+      }
+    } else {
+      if (currentIntersected) {
+        currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
+        currentIntersected = null;
+        document.body.style.cursor = 'auto';
+      }
+    }
+    
+    // Handle click on NFT
+    document.addEventListener('click', function onClick(event) {
+      if (controls.isLocked && currentIntersected) {
+        const nftData = currentIntersected.userData.nftData;
+        openNFTModal(nftData);
+      }
+    });
+  }
+  
+  renderer.render(scene, camera);
+}
+
+function createNFTPlane(nftData, position) {
+  // Create a plane for the NFT image
+  const geometry = new THREE.PlaneGeometry(3, 3);
+  
+  // Create texture loader
+  const textureLoader = new THREE.TextureLoader();
+  const texture = textureLoader.load(nftData.image_url, function() {
+    // Texture loaded
+  });
+  
+  const material = new THREE.MeshStandardMaterial({ 
+    map: texture,
+    side: THREE.DoubleSide
+  });
+  
+  const plane = new THREE.Mesh(geometry, material);
+  plane.position.set(position.x, position.y, position.z);
+  
+  // Always face the camera
+  plane.lookAt(camera.position);
+  
+  // Store NFT data for interaction
+  plane.userData.nftData = nftData;
+  plane.userData.originalEmissive = 0x000000;
+  
+  scene.add(plane);
+  nftObjects.push(plane);
+  
+  // Add a stand for the NFT
+  const standGeometry = new THREE.CylinderGeometry(0.2, 0.3, 1, 8);
+  const standMaterial = new THREE.MeshStandardMaterial({ color: 0x475569 });
+  const stand = new THREE.Mesh(standGeometry, standMaterial);
+  stand.position.set(position.x, position.y - 2, position.z);
+  scene.add(stand);
+}
+
+function openNFTModal(nftData) {
+  document.getElementById('modal-image').src = nftData.image_url;
+  document.getElementById('modal-title').textContent = `${nftData.collection || 'Untitled'} #${nftData.token_id ?? ''}`;
+  document.getElementById('modal-description').textContent = nftData.description || 'No description available';
+  document.getElementById('modal-price').textContent = nftData.price_eth ?? 'N/A';
+  
+  let buttons = "";
+  if (!account) {
+    buttons = "<p>🔒 Connect wallet to interact.</p>";
+  } else if (nftData.owner?.toLowerCase() === account.toLowerCase()) {
+    buttons = `
+      <button onclick="sellNFT(${nftData.token_id})">Sell</button>
+      <button onclick="transferNFT(${nftData.token_id})">Transfer ($6 fee)</button>
+    `;
+  } else {
+    buttons = `<button onclick="buyNFT(${nftData.token_id}, ${nftData.price_eth || 0})">Buy ($6 fee)</button>`;
+  }
+  
+  document.getElementById('modal-actions').innerHTML = buttons;
+  document.getElementById('nft-modal').style.display = 'block';
+}
+
+document.getElementById('close-modal').addEventListener('click', function() {
+  document.getElementById('nft-modal').style.display = 'none';
+});
 
 /* ==============================
    CONNECT WALLET (MetaMask + WalletConnect)
@@ -122,48 +440,34 @@ document.getElementById("connectBtn").addEventListener("click", connectWallet);
    LOAD NFTs
 ============================== */
 async function loadNFTs() {
-  const grid = document.getElementById("nft-grid");
-  grid.innerHTML = "<p>Loading NFTs...</p>";
-
   const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false });
 
   if (error) {
     console.error(error);
-    grid.innerHTML = "<p>⚠️ Error loading NFTs.</p>";
     return;
   }
+  
   if (!data || data.length === 0) {
-    grid.innerHTML = "<p>No NFTs found.</p>";
     return;
   }
 
-  const userAddress = account ? account.toLowerCase() : null;
-
-  grid.innerHTML = data.map(nft => {
-    let buttons = "";
-    if (!userAddress) {
-      buttons = "<p>🔒 Connect wallet to interact.</p>";
-    } else if (nft.owner?.toLowerCase() === userAddress) {
-      buttons = `
-        <button onclick="sellNFT(${nft.token_id})">Sell</button>
-        <button onclick="transferNFT(${nft.token_id})">Transfer ($6 fee)</button>
-      `;
-    } else {
-      buttons = `<button onclick="buyNFT(${nft.token_id}, ${nft.price_eth || 0})">Buy ($6 fee)</button>`;
-    }
-
-    return `
-      <div class="nft-card">
-        <img src="${nft.image_url}" alt="${nft.collection || 'NFT'}" />
-        <div class="nft-info">
-          <h3>${nft.collection || 'Untitled'} #${nft.token_id ?? ''}</h3>
-          <p>${nft.description || 'No description available'}</p>
-          <p><strong>Price:</strong> ${nft.price_eth ?? 'N/A'} ETH</p>
-          <div class="nft-actions">${buttons}</div>
-        </div>
-      </div>
-    `;
-  }).join("");
+  // Clear existing NFTs
+  nftObjects.forEach(obj => scene.remove(obj));
+  nftObjects = [];
+  
+  // Position NFTs in a grid on the 3D plane
+  const gridSize = Math.ceil(Math.sqrt(data.length));
+  const spacing = 6;
+  
+  data.forEach((nft, index) => {
+    const row = Math.floor(index / gridSize);
+    const col = index % gridSize;
+    
+    const x = (col - gridSize/2) * spacing;
+    const z = (row - gridSize/2) * spacing;
+    
+    createNFTPlane(nft, { x: x, y: 1.5, z: z });
+  });
 }
 
 /* ==============================
@@ -178,6 +482,7 @@ async function buyNFT(tokenId, priceEth) {
     await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", tokenId);
     alert("✅ NFT purchased! Payment sent.");
     loadNFTs();
+    document.getElementById('nft-modal').style.display = 'none';
   } catch(err) { console.error(err); alert("Buy failed: " + err.message); }
 }
 
@@ -191,6 +496,7 @@ async function sellNFT(tokenId) {
   await client.from("nfts").update({ sold: false, price_eth: priceEth, owner: account }).eq("token_id", tokenId);
   alert("✅ NFT listed for sale!");
   loadNFTs();
+  document.getElementById('nft-modal').style.display = 'none';
 }
 
 /* ==============================
@@ -209,9 +515,12 @@ async function transferNFT(tokenId) {
     await client.from("nfts").update({ owner: recipient }).eq("token_id", tokenId);
     alert("✅ NFT transferred! Fee sent.");
     loadNFTs();
+    document.getElementById('nft-modal').style.display = 'none';
   } catch(err) { console.error(err); alert("Transfer failed: " + err.message); }
 }
 
+// Initialize the 3D scene and load NFTs
+init3DScene();
 loadNFTs();
 </script>
 
