@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>💎 3D NFT Marketplace</title>
+<title>💎 3D NFT Treasure Hunt</title>
 
 <!-- Supabase & Web3.js & WalletConnect -->
 <script src="https://unpkg.com/@supabase/supabase-js"></script>
@@ -26,19 +26,20 @@
   
   .homepage{
     border-style: outset;
-    width: 270px;
-    height: 100px;
+    width: 120px;
+    height: 45px;
     background-image: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg');
-    background-size: 270px 100px;
+    background-size: 120px 45px;
     border-radius: 50%;
     text-align: center;
-    line-height: 100px;
+    line-height: 45px;
     color: white;
     font-weight: bold;
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 10px;
+    left: 10px;
     z-index: 100;
+    font-size: 0.8rem;
   }
   
   * { box-sizing: border-box; }
@@ -49,12 +50,13 @@
     padding: 0; 
     color: var(--text-dark); 
     overflow: hidden;
+    touch-action: none;
   }
   
   header { 
     background: var(--card-bg); 
     text-align: center; 
-    padding: 18px 12px; 
+    padding: 12px 8px; 
     border-bottom: 1px solid #e2e8f0; 
     position: absolute; 
     top: 0; 
@@ -62,9 +64,13 @@
     z-index: 10; 
   }
   
-  h1 { font-size: 1.8rem; margin: 0; }
-  #walletStatus { margin-top: 8px; font-size: 0.9rem; color: var(--text-light); }
-  #connectBtn { margin-top: 6px; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  #walletStatus { margin-top: 6px; font-size: 0.8rem; color: var(--text-light); }
+  #connectBtn { 
+    margin-top: 4px; 
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
   
   #canvas-container {
     position: absolute;
@@ -76,14 +82,52 @@
   
   #instructions {
     position: absolute;
-    bottom: 20px;
+    bottom: 10px;
     left: 0;
     width: 100%;
     text-align: center;
     color: white;
     background-color: rgba(0,0,0,0.7);
-    padding: 10px;
+    padding: 8px;
     z-index: 100;
+    font-size: 0.8rem;
+  }
+  
+  #mobile-controls {
+    position: absolute;
+    bottom: 80px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .mobile-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  #look-controls {
+    position: absolute;
+    bottom: 80px;
+    left: 10px;
+    width: 120px;
+    height: 120px;
+    z-index: 100;
+    background: rgba(0,0,0,0.2);
+    border-radius: 50%;
+    touch-action: none;
   }
   
   #nft-modal {
@@ -97,13 +141,15 @@
     box-shadow: var(--shadow);
     padding: 20px;
     z-index: 1000;
-    max-width: 400px;
-    width: 90%;
+    max-width: 90%;
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
   }
   
   #nft-modal img {
     width: 100%;
-    height: 220px;
+    height: 200px;
     object-fit: cover;
     display: block;
     border-radius: 8px;
@@ -124,7 +170,7 @@
   
   .nft-actions {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     gap: 8px;
     margin-top: 10px;
   }
@@ -133,7 +179,7 @@
     border: none;
     background: var(--accent);
     color: white;
-    padding: 6px 12px;
+    padding: 8px 12px;
     border-radius: 8px;
     font-size: 0.85rem;
     cursor: pointer;
@@ -161,10 +207,47 @@
     background: #dc2626;
   }
   
+  #mini-map {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    width: 120px;
+    height: 120px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 8px;
+    z-index: 100;
+    border: 2px solid white;
+  }
+  
+  #mini-map canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+  }
+  
   @media (max-width: 500px) { 
-    header h1 { font-size: 1.4rem; } 
+    header h1 { font-size: 1.2rem; } 
     #instructions {
-      font-size: 0.8rem;
+      font-size: 0.7rem;
+      bottom: 5px;
+    }
+    #mobile-controls {
+      bottom: 60px;
+    }
+    #look-controls {
+      bottom: 60px;
+      width: 100px;
+      height: 100px;
+    }
+    .mobile-btn {
+      width: 45px;
+      height: 45px;
+      font-size: 1rem;
+    }
+    #mini-map {
+      width: 100px;
+      height: 100px;
+      top: 60px;
     }
   }
 </style>
@@ -172,7 +255,7 @@
 <body>
 
 <header>
-  <h1>3D NFT Gallery</h1>
+  <h1>NFT Treasure Hunt</h1>
   <div id="walletStatus">Not connected</div>
   <button id="connectBtn">Connect Wallet</button>
 </header>
@@ -184,8 +267,22 @@
 <div id="canvas-container"></div>
 
 <div id="instructions">
-  Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press ESC to unlock pointer.
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around.</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find hidden NFTs!</div>
 </div>
+
+<div id="mobile-controls">
+  <div class="mobile-btn" id="forward-btn">↑</div>
+  <div style="display:flex; gap:10px;">
+    <div class="mobile-btn" id="left-btn">←</div>
+    <div class="mobile-btn" id="backward-btn">↓</div>
+    <div class="mobile-btn" id="right-btn">→</div>
+  </div>
+</div>
+
+<div id="look-controls"></div>
+
+<div id="mini-map"></div>
 
 <div id="nft-modal">
   <button id="close-modal">X</button>
@@ -216,25 +313,122 @@ const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 let web3, account, nftContract;
 
 /* ==============================
+   MOBILE DETECTION & CONTROLS
+============================== */
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let lookTouchId = null;
+let lookStartX = 0, lookStartY = 0;
+let lookX = 0, lookY = 0;
+
+if (isMobile) {
+  document.getElementById('desktop-instructions').style.display = 'none';
+  document.getElementById('mobile-instructions').style.display = 'block';
+  
+  // Set up mobile movement controls
+  document.getElementById('forward-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveForward = true;
+  });
+  document.getElementById('forward-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveForward = false;
+  });
+  
+  document.getElementById('backward-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveBackward = true;
+  });
+  document.getElementById('backward-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveBackward = false;
+  });
+  
+  document.getElementById('left-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveLeft = true;
+  });
+  document.getElementById('left-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveLeft = false;
+  });
+  
+  document.getElementById('right-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveRight = true;
+  });
+  document.getElementById('right-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveRight = false;
+  });
+  
+  // Set up look controls
+  const lookControls = document.getElementById('look-controls');
+  lookControls.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (lookTouchId === null) {
+      const touch = e.touches[0];
+      lookTouchId = touch.identifier;
+      lookStartX = touch.clientX;
+      lookStartY = touch.clientY;
+    }
+  });
+  
+  lookControls.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === lookTouchId) {
+        const deltaX = touch.clientX - lookStartX;
+        const deltaY = touch.clientY - lookStartY;
+        
+        lookX = deltaX * 0.5;
+        lookY = deltaY * 0.5;
+        
+        lookStartX = touch.clientX;
+        lookStartY = touch.clientY;
+        break;
+      }
+    }
+  });
+  
+  lookControls.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === lookTouchId) {
+        lookTouchId = null;
+        lookX = 0;
+        lookY = 0;
+        break;
+      }
+    }
+  });
+}
+
+/* ==============================
    3D SCENE SETUP
 ============================== */
 let scene, camera, renderer, controls;
-let nftObjects = [];
+let nftObjects = [], environmentObjects = [];
 let raycaster, mouse;
 let currentIntersected = null;
+let miniMapScene, miniMapCamera, miniMapRenderer;
 
 function init3DScene() {
   // Create scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf0f9ff);
+  scene.background = new THREE.Color(0x87CEEB); // Sky blue
+  scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
   
   // Create camera
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
   camera.position.set(0, 5, 10);
   
   // Create renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
   document.getElementById('canvas-container').appendChild(renderer.domElement);
   
   // Add lighting
@@ -242,53 +436,171 @@ function init3DScene() {
   scene.add(ambientLight);
   
   const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(10, 20, 15);
+  directionalLight.position.set(50, 100, 50);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.width = 2048;
+  directionalLight.shadow.mapSize.height = 2048;
+  directionalLight.shadow.camera.near = 0.5;
+  directionalLight.shadow.camera.far = 500;
+  directionalLight.shadow.camera.left = -100;
+  directionalLight.shadow.camera.right = 100;
+  directionalLight.shadow.camera.top = 100;
+  directionalLight.shadow.camera.bottom = -100;
   scene.add(directionalLight);
   
-  // Create floor
-  const floorGeometry = new THREE.PlaneGeometry(100, 100);
-  const floorMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x94a3b8,
-    roughness: 0.8,
-    metalness: 0.2
-  });
-  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
+  // Create terrain
+  createTerrain();
   
-  // Add grid helper
-  const gridHelper = new THREE.GridHelper(100, 20, 0x000000, 0x000000);
-  gridHelper.material.opacity = 0.2;
-  gridHelper.material.transparent = true;
-  scene.add(gridHelper);
+  // Add environment objects (trees, rocks, etc.)
+  createEnvironment();
   
   // Set up controls
-  controls = new THREE.PointerLockControls(camera, document.body);
+  if (!isMobile) {
+    controls = new THREE.PointerLockControls(camera, document.body);
+    
+    document.addEventListener('click', function() {
+      if (!controls.isLocked) {
+        controls.lock();
+      }
+    });
+    
+    controls.addEventListener('lock', function() {
+      document.getElementById('instructions').style.display = 'none';
+    });
+    
+    controls.addEventListener('unlock', function() {
+      document.getElementById('instructions').style.display = 'block';
+    });
+  }
   
   // Set up raycaster for object interaction
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
   
-  // Event listeners
-  document.addEventListener('click', function() {
-    if (!controls.isLocked) {
-      controls.lock();
-    }
-  });
-  
-  controls.addEventListener('lock', function() {
-    document.getElementById('instructions').style.display = 'none';
-  });
-  
-  controls.addEventListener('unlock', function() {
-    document.getElementById('instructions').style.display = 'block';
-  });
-  
   // Handle window resize
   window.addEventListener('resize', onWindowResize);
   
+  // Initialize mini-map
+  initMiniMap();
+  
   // Start animation
   animate();
+}
+
+function createTerrain() {
+  // Create a large ground plane
+  const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+  const groundMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x7CFC00, // Green
+    side: THREE.DoubleSide
+  });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  
+  // Add some hills with noise
+  const vertices = groundGeometry.attributes.position.array;
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i];
+    const z = vertices[i + 2];
+    // Create gentle hills
+    vertices[i + 1] = Math.sin(x * 0.05) * Math.cos(z * 0.05) * 3;
+  }
+  groundGeometry.attributes.position.needsUpdate = true;
+  groundGeometry.computeVertexNormals();
+}
+
+function createEnvironment() {
+  const treeGeometry = new THREE.ConeGeometry(2, 5, 8);
+  const treeMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+  
+  const rockGeometry = new THREE.SphereGeometry(1.5, 7, 7);
+  const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x696969 });
+  
+  // Create trees and rocks at random positions
+  for (let i = 0; i < 50; i++) {
+    const x = (Math.random() - 0.5) * 180;
+    const z = (Math.random() - 0.5) * 180;
+    
+    if (Math.random() > 0.5) {
+      // Create a tree
+      const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+      tree.position.set(x, 2.5, z);
+      tree.castShadow = true;
+      scene.add(tree);
+      environmentObjects.push(tree);
+    } else {
+      // Create a rock
+      const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+      rock.position.set(x, 1.5, z);
+      rock.castShadow = true;
+      scene.add(rock);
+      environmentObjects.push(rock);
+    }
+  }
+}
+
+function initMiniMap() {
+  miniMapScene = new THREE.Scene();
+  miniMapCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 0.1, 200);
+  miniMapCamera.position.y = 50;
+  miniMapCamera.lookAt(0, 0, 0);
+  
+  const miniMapCanvas = document.createElement('canvas');
+  miniMapCanvas.width = 120;
+  miniMapCanvas.height = 120;
+  document.getElementById('mini-map').appendChild(miniMapCanvas);
+  
+  miniMapRenderer = new THREE.WebGLRenderer({ 
+    canvas: miniMapCanvas,
+    antialias: false 
+  });
+  miniMapRenderer.setSize(120, 120);
+  miniMapRenderer.setClearColor(0x000000, 0.5);
+  
+  // Add ground to mini-map
+  const groundGeometry = new THREE.PlaneGeometry(200, 200);
+  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x7CFC00 });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  miniMapScene.add(ground);
+  
+  // Add player indicator
+  const playerGeometry = new THREE.CircleGeometry(2, 8);
+  const playerMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+  const playerIndicator = new THREE.Mesh(playerGeometry, playerMaterial);
+  playerIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(playerIndicator);
+  
+  // Add NFT indicators
+  const nftIndicatorGeometry = new THREE.CircleGeometry(1.5, 6);
+  const nftIndicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x3B82F6 });
+  
+  window.updateMiniMap = function() {
+    // Update player position
+    playerIndicator.position.x = camera.position.x;
+    playerIndicator.position.z = camera.position.z;
+    
+    // Clear previous NFT indicators
+    miniMapScene.children.forEach((child, index) => {
+      if (child.userData && child.userData.isNFTIndicator) {
+        miniMapScene.children.splice(index, 1);
+      }
+    });
+    
+    // Add current NFT indicators
+    nftObjects.forEach(nft => {
+      const indicator = new THREE.Mesh(nftIndicatorGeometry, nftIndicatorMaterial);
+      indicator.position.x = nft.position.x;
+      indicator.position.z = nft.position.z;
+      indicator.rotation.x = -Math.PI / 2;
+      indicator.userData = { isNFTIndicator: true };
+      miniMapScene.add(indicator);
+    });
+    
+    miniMapRenderer.render(miniMapScene, miniMapCamera);
+  };
 }
 
 function onWindowResize() {
@@ -300,42 +612,71 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame(animate);
   
-  if (controls.isLocked) {
-    // Update raycaster for object interaction
+  // Handle movement for mobile
+  if (isMobile) {
+    const moveSpeed = 0.2;
+    
+    if (moveForward) {
+      camera.translateZ(-moveSpeed);
+    }
+    if (moveBackward) {
+      camera.translateZ(moveSpeed);
+    }
+    if (moveLeft) {
+      camera.translateX(-moveSpeed);
+    }
+    if (moveRight) {
+      camera.translateX(moveSpeed);
+    }
+    
+    // Handle look for mobile
+    if (lookX !== 0 || lookY !== 0) {
+      camera.rotation.y -= lookX * 0.01;
+      camera.rotation.x -= lookY * 0.01;
+      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+    }
+  }
+  
+  // Update raycaster for object interaction
+  if (!isMobile) {
     raycaster.setFromCamera(mouse, camera);
-    
-    const intersects = raycaster.intersectObjects(nftObjects);
-    
-    if (intersects.length > 0) {
-      if (currentIntersected !== intersects[0].object) {
-        // Reset previous intersection
-        if (currentIntersected) {
-          currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
-        }
-        
-        // Set new intersection
-        currentIntersected = intersects[0].object;
-        currentIntersected.userData.originalEmissive = currentIntersected.material.emissive.getHex();
-        currentIntersected.material.emissive.setHex(0x3b82f6);
-        
-        // Change cursor to pointer
-        document.body.style.cursor = 'pointer';
-      }
-    } else {
+  } else {
+    // For mobile, we'll use a fixed direction (forward)
+    raycaster.set(camera.position, camera.getWorldDirection(new THREE.Vector3()));
+  }
+  
+  const intersects = raycaster.intersectObjects(nftObjects);
+  
+  if (intersects.length > 0) {
+    if (currentIntersected !== intersects[0].object) {
+      // Reset previous intersection
       if (currentIntersected) {
         currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
-        currentIntersected = null;
+      }
+      
+      // Set new intersection
+      currentIntersected = intersects[0].object;
+      currentIntersected.userData.originalEmissive = currentIntersected.material.emissive.getHex();
+      currentIntersected.material.emissive.setHex(0x3b82f6);
+      
+      // Change cursor to pointer
+      if (!isMobile) {
+        document.body.style.cursor = 'pointer';
+      }
+    }
+  } else {
+    if (currentIntersected) {
+      currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
+      currentIntersected = null;
+      if (!isMobile) {
         document.body.style.cursor = 'auto';
       }
     }
-    
-    // Handle click on NFT
-    document.addEventListener('click', function onClick(event) {
-      if (controls.isLocked && currentIntersected) {
-        const nftData = currentIntersected.userData.nftData;
-        openNFTModal(nftData);
-      }
-    });
+  }
+  
+  // Update mini-map
+  if (window.updateMiniMap) {
+    window.updateMiniMap();
   }
   
   renderer.render(scene, camera);
@@ -343,7 +684,7 @@ function animate() {
 
 function createNFTPlane(nftData, position) {
   // Create a plane for the NFT image
-  const geometry = new THREE.PlaneGeometry(3, 3);
+  const geometry = new THREE.PlaneGeometry(2, 2);
   
   // Create texture loader
   const textureLoader = new THREE.TextureLoader();
@@ -353,14 +694,16 @@ function createNFTPlane(nftData, position) {
   
   const material = new THREE.MeshStandardMaterial({ 
     map: texture,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.9
   });
   
   const plane = new THREE.Mesh(geometry, material);
   plane.position.set(position.x, position.y, position.z);
   
-  // Always face the camera
-  plane.lookAt(camera.position);
+  // Rotate to face a random direction
+  plane.rotation.y = Math.random() * Math.PI * 2;
   
   // Store NFT data for interaction
   plane.userData.nftData = nftData;
@@ -369,12 +712,21 @@ function createNFTPlane(nftData, position) {
   scene.add(plane);
   nftObjects.push(plane);
   
-  // Add a stand for the NFT
-  const standGeometry = new THREE.CylinderGeometry(0.2, 0.3, 1, 8);
-  const standMaterial = new THREE.MeshStandardMaterial({ color: 0x475569 });
-  const stand = new THREE.Mesh(standGeometry, standMaterial);
-  stand.position.set(position.x, position.y - 2, position.z);
-  scene.add(stand);
+  // Add a subtle glow effect
+  const glowGeometry = new THREE.PlaneGeometry(2.2, 2.2);
+  const glowMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x3b82f6,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.DoubleSide
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  glow.position.copy(plane.position);
+  glow.rotation.copy(plane.rotation);
+  scene.add(glow);
+  
+  // Make glow part of the NFT object for interaction
+  plane.userData.glow = glow;
 }
 
 function openNFTModal(nftData) {
@@ -401,6 +753,14 @@ function openNFTModal(nftData) {
 
 document.getElementById('close-modal').addEventListener('click', function() {
   document.getElementById('nft-modal').style.display = 'none';
+});
+
+// Handle click/tap on NFT
+document.addEventListener('click', function onClick(event) {
+  if ((!isMobile || (isMobile && currentIntersected)) && currentIntersected) {
+    const nftData = currentIntersected.userData.nftData;
+    openNFTModal(nftData);
+  }
 });
 
 /* ==============================
@@ -452,21 +812,35 @@ async function loadNFTs() {
   }
 
   // Clear existing NFTs
-  nftObjects.forEach(obj => scene.remove(obj));
+  nftObjects.forEach(obj => {
+    scene.remove(obj);
+    if (obj.userData.glow) {
+      scene.remove(obj.userData.glow);
+    }
+  });
   nftObjects = [];
   
-  // Position NFTs in a grid on the 3D plane
-  const gridSize = Math.ceil(Math.sqrt(data.length));
-  const spacing = 6;
-  
+  // Position NFTs randomly across the terrain, spaced out more
   data.forEach((nft, index) => {
-    const row = Math.floor(index / gridSize);
-    const col = index % gridSize;
+    // Create positions in a wider area with more spacing
+    const angle = (index / data.length) * Math.PI * 2;
+    const radius = 20 + Math.random() * 60; // Much wider distribution
     
-    const x = (col - gridSize/2) * spacing;
-    const z = (row - gridSize/2) * spacing;
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
     
-    createNFTPlane(nft, { x: x, y: 1.5, z: z });
+    // Add some randomness to positions
+    const randomOffsetX = (Math.random() - 0.5) * 30;
+    const randomOffsetZ = (Math.random() - 0.5) * 30;
+    
+    // Get terrain height at this position
+    const terrainHeight = Math.sin((x + randomOffsetX) * 0.05) * Math.cos((z + randomOffsetZ) * 0.05) * 3;
+    
+    createNFTPlane(nft, { 
+      x: x + randomOffsetX, 
+      y: terrainHeight + 1.5, 
+      z: z + randomOffsetZ 
+    });
   });
 }
 
