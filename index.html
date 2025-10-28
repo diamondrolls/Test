@@ -362,8 +362,8 @@
 <div id="canvas-container"></div>
 
 <div id="instructions">
-  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump.</div>
-  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere!</div>
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Use the cyan bridge to reach the moon!</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere! Use the cyan bridge to reach the moon!</div>
 </div>
 
 <div id="location-info">
@@ -763,8 +763,79 @@ function createWorld() {
   // Create moon in the sky
   createMoon();
   
+  // Create bridge to the moon with guardrails
+  createMoonBridge();
+  
   // Add boundary walls to prevent going off map
   createBoundaryWalls();
+}
+
+function createMoonBridge() {
+  const bridgeGroup = new THREE.Group();
+  
+  // Cyan bridge material with 70% opacity (rgba(0,255,255,.7))
+  const bridgeMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x00FFFF, // Cyan color
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const bridgeWidth = 20;
+  const bridgeLength = 1200; // Distance to moon
+  const bridgeHeight = 5;
+  
+  // Create bridge platform
+  const bridgeGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, bridgeLength);
+  const bridge = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
+  bridge.position.set(0, 50, -bridgeLength/2);
+  bridge.castShadow = true;
+  bridge.receiveShadow = true;
+  bridgeGroup.add(bridge);
+  
+  // Add bridge to collision objects
+  const bridgeBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(0, 50, -bridgeLength/2),
+    new THREE.Vector3(bridgeWidth, bridgeHeight, bridgeLength)
+  );
+  collisionObjects.push(bridgeBox);
+  roofObjects.push({
+    box: bridgeBox,
+    position: new THREE.Vector3(0, 50, -bridgeLength/2),
+    width: bridgeWidth,
+    depth: bridgeLength
+  });
+  
+  // Create guardrails - LEFT SIDE
+  const railGeometry = new THREE.BoxGeometry(1, 10, bridgeLength);
+  const railMaterial = new THREE.MeshLambertMaterial({ color: 0x4B5563 });
+  
+  const leftRail = new THREE.Mesh(railGeometry, railMaterial);
+  leftRail.position.set(-bridgeWidth/2 - 0.5, 55, -bridgeLength/2);
+  leftRail.castShadow = true;
+  leftRail.receiveShadow = true;
+  bridgeGroup.add(leftRail);
+  
+  // Create guardrails - RIGHT SIDE
+  const rightRail = new THREE.Mesh(railGeometry, railMaterial);
+  rightRail.position.set(bridgeWidth/2 + 0.5, 55, -bridgeLength/2);
+  rightRail.castShadow = true;
+  rightRail.receiveShadow = true;
+  bridgeGroup.add(rightRail);
+  
+  // Add rails to collision objects
+  const leftRailBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(-bridgeWidth/2 - 0.5, 55, -bridgeLength/2),
+    new THREE.Vector3(1, 10, bridgeLength)
+  );
+  collisionObjects.push(leftRailBox);
+  
+  const rightRailBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(bridgeWidth/2 + 0.5, 55, -bridgeLength/2),
+    new THREE.Vector3(1, 10, bridgeLength)
+  );
+  collisionObjects.push(rightRailBox);
+  
+  scene.add(bridgeGroup);
 }
 
 function createBoundaryWalls() {
@@ -893,8 +964,8 @@ function createMoon() {
   const moonMaterial = new THREE.MeshLambertMaterial({ color: 0xE5E7EB });
   moon = new THREE.Mesh(moonGeometry, moonMaterial);
   
-  // Position the moon high in the sky
-  moon.position.set(0, 800, -800);
+  // Position the moon at the end of the bridge
+  moon.position.set(0, 800, -1400);
   moon.castShadow = true;
   moon.receiveShadow = true;
   moonGroup.add(moon);
@@ -1093,13 +1164,21 @@ function updateLocationInfo() {
   const z = playerAvatar.position.z;
   const y = playerAvatar.position.y;
   
-  // Check if player is in the city
-  if (x > -200 && x < 200 && z > -200 && z < 200) {
-    locationInfo.textContent = "Location: City Center (Floating)";
-  }
   // Check if player is on the moon
-  else if (y > 600) {
+  if (y > 600) {
     locationInfo.textContent = "Location: Moon Surface (Floating)";
+  }
+  // Check if player is on the bridge
+  else if (Math.abs(x) < 12 && z < -50 && z > -1200 && y > 45 && y < 55) {
+    locationInfo.textContent = "Location: Moon Bridge (Floating)";
+  }
+  // Check if player is on a building roof
+  else if (playerOnRoof) {
+    locationInfo.textContent = "Location: Building Roof (Floating)";
+  }
+  // Check if player is in the city
+  else if (x > -200 && x < 200 && z > -200 && z < 200) {
+    locationInfo.textContent = "Location: City Center (Floating)";
   }
   // Otherwise in the grass fields
   else {
@@ -1404,9 +1483,15 @@ async function loadNFTs() {
   });
   nftObjects = [];
   
-  // Split NFTs between Earth and Moon
-  const earthNFTs = data.slice(0, Math.floor(data.length * 0.7)); // 70% on Earth
-  const moonNFTs = data.slice(Math.floor(data.length * 0.7)); // 30% on Moon
+  // Split NFTs between Earth, Moon, and Bridge
+  const totalNFTs = data.length;
+  const earthCount = Math.floor(totalNFTs * 0.5); // 50% on Earth
+  const moonCount = Math.floor(totalNFTs * 0.25); // 25% on Moon
+  const bridgeCount = totalNFTs - earthCount - moonCount; // 25% on Bridge
+  
+  const earthNFTs = data.slice(0, earthCount);
+  const moonNFTs = data.slice(earthCount, earthCount + moonCount);
+  const bridgeNFTs = data.slice(earthCount + moonCount);
   
   // Position Earth NFTs randomly across the terrain
   earthNFTs.forEach((nft, index) => {
@@ -1454,6 +1539,26 @@ async function loadNFTs() {
       y: moon.position.y + y, 
       z: moon.position.z + z 
     }, true);
+  });
+  
+  // Position Bridge NFTs along the bridge
+  bridgeNFTs.forEach((nft, index) => {
+    const bridgeLength = 1200;
+    const bridgeStartZ = -50;
+    const bridgeEndZ = -bridgeLength + 50;
+    
+    // Position NFTs evenly along the bridge
+    const zPos = bridgeStartZ + (index / bridgeNFTs.length) * (bridgeEndZ - bridgeStartZ);
+    
+    // Add some horizontal variation but keep within bridge width
+    const xPos = (Math.random() - 0.5) * 16; // Keep within bridge width (20 - 4 for safety)
+    
+    // Position at bridge height
+    createNFTPlane(nft, { 
+      x: xPos, 
+      y: 53, // Slightly above bridge surface
+      z: zPos 
+    }, false);
   });
 }
 
@@ -1510,4 +1615,4 @@ async function transferNFT(tokenId) {
 </script>
 
 </body>
-</html>   
+</html>
