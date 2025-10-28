@@ -585,7 +585,7 @@ let hoverTime = 0;
 let collisionObjects = [];
 let roofObjects = [];
 let playerCollider = new THREE.Box3();
-let playerSize = new THREE.Vector3(4, 2, 4); // Wider but shorter for floating board
+let playerSize = new THREE.Vector3(2, 1, 4); // Adjusted for NFT-shaped board
 let playerOnRoof = false;
 let currentRoof = null;
 
@@ -927,44 +927,64 @@ function createPlayerAvatar() {
   // Create a group for the entire player (avatar + hover board)
   const group = new THREE.Group();
   
-  // Create the silver hover board
-  const boardGeometry = new THREE.CylinderGeometry(2, 2, 0.3, 32);
+  // Create the silver NFT-shaped hover board
+  // NFT shape: rectangular but laying flat - half width, 3x thicker, half height/length
+  const boardWidth = 1.5;  // Half the original width (was 3)
+  const boardHeight = 0.9; // 3x thicker (was 0.3)
+  const boardDepth = 3;    // Half the original length (was 6)
+  
+  const boardGeometry = new THREE.BoxGeometry(boardWidth, boardHeight, boardDepth);
   const boardMaterial = new THREE.MeshStandardMaterial({ 
     color: 0xC0C0C0, // Silver color
-    metalness: 0.8,
-    roughness: 0.2
+    metalness: 0.9,
+    roughness: 0.1,
+    emissive: 0x222222
   });
   hoverBoard = new THREE.Mesh(boardGeometry, boardMaterial);
-  hoverBoard.rotation.x = Math.PI / 2; // Lay flat
+  // Already laying flat due to box geometry orientation
   hoverBoard.castShadow = true;
   hoverBoard.receiveShadow = true;
   group.add(hoverBoard);
   
-  // Add green underglow to the hover board
-  const underglowGeometry = new THREE.CylinderGeometry(2.2, 2.2, 0.1, 32);
+  // Add green underglow to the hover board - NFT shape
+  const underglowGeometry = new THREE.BoxGeometry(boardWidth + 0.2, 0.1, boardDepth + 0.2);
   const underglowMaterial = new THREE.MeshBasicMaterial({ 
     color: 0x00FF00, // Bright green
     transparent: true,
-    opacity: 0.7
+    opacity: 0.8
   });
   const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
-  underglow.rotation.x = Math.PI / 2;
-  underglow.position.y = -0.2; // Position below the board
+  underglow.position.y = -boardHeight/2 - 0.05; // Position below the board
   group.add(underglow);
+  
+  // Add some metallic details to make it look more like an NFT frame
+  const frameGeometry = new THREE.BoxGeometry(boardWidth + 0.05, 0.05, boardDepth + 0.05);
+  const frameMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x888888,
+    metalness: 1.0,
+    roughness: 0.1
+  });
+  const topFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+  topFrame.position.y = boardHeight/2 + 0.025;
+  group.add(topFrame);
+  
+  const bottomFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+  bottomFrame.position.y = -boardHeight/2 - 0.025;
+  group.add(bottomFrame);
   
   // Create the avatar standing on the board
   let avatar;
   if (selectedAvatar === 'boy') {
     // Create boy avatar - blue color scheme
-    const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+    const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8);
     const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1.5;
+    body.position.y = 0.8;
     
-    const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+    const headGeometry = new THREE.SphereGeometry(0.5, 8, 8);
     const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
     const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 2.8;
+    head.position.y = 1.8;
     
     avatar = new THREE.Group();
     avatar.add(body);
@@ -972,15 +992,15 @@ function createPlayerAvatar() {
     
   } else if (selectedAvatar === 'girl') {
     // Create girl avatar - pink color scheme
-    const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+    const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8);
     const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1.5;
+    body.position.y = 0.8;
     
-    const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+    const headGeometry = new THREE.SphereGeometry(0.5, 8, 8);
     const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
     const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 2.8;
+    head.position.y = 1.8;
     
     avatar = new THREE.Group();
     avatar.add(body);
@@ -989,7 +1009,7 @@ function createPlayerAvatar() {
   
   // Position avatar on top of the hover board
   if (avatar) {
-    avatar.position.y = 0.3; // On top of the board
+    avatar.position.y = boardHeight/2 + 0.1; // On top of the board
     avatar.castShadow = true;
     group.add(avatar);
   }
@@ -1495,4 +1515,4 @@ async function transferNFT(tokenId) {
 </script>
 
 </body>
-</html>   
+</html>
