@@ -362,8 +362,8 @@
 <div id="canvas-container"></div>
 
 <div id="instructions">
-  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Use the cyan bridge to reach the moon!</div>
-  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere! Use the cyan bridge to reach the moon!</div>
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Follow the S-shaped bridge to the moon! Find the swimming pool in the center with an underwater cave!</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere! Follow the S-shaped bridge to the moon! Find the swimming pool in the center with an underwater cave!</div>
 </div>
 
 <div id="location-info">
@@ -589,6 +589,12 @@ let playerSize = new THREE.Vector3(8, 1, 8); // Same size as NFT displays
 let playerOnRoof = false;
 let currentRoof = null;
 
+// Swimming pool variables
+let poolGroup;
+let underwaterCaveGroup;
+let isInWater = false;
+let isInUnderwaterCave = false;
+
 function init3DScene() {
   // Create scene
   scene = new THREE.Scene();
@@ -763,11 +769,173 @@ function createWorld() {
   // Create moon in the sky
   createMoon();
   
-  // Create bridge to the moon with guardrails
+  // Create S-shaped bridge to the moon with guardrails
   createMoonBridge();
+  
+  // Create swimming pool and underwater cave
+  createSwimmingPool();
   
   // Add boundary walls to prevent going off map
   createBoundaryWalls();
+}
+
+function createSwimmingPool() {
+  poolGroup = new THREE.Group();
+  
+  // Pool dimensions
+  const poolWidth = 80;  // Same width as a building
+  const poolLength = 80; // Same length as a building
+  const poolDepth = 15;  // Depth of the pool
+  
+  // Create pool basin (hole in the ground)
+  const poolBasinGeometry = new THREE.BoxGeometry(poolWidth, poolDepth, poolLength);
+  const poolBasinMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1E40AF, // Deep blue for water
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const poolBasin = new THREE.Mesh(poolBasinGeometry, poolBasinMaterial);
+  poolBasin.position.set(0, -poolDepth/2, 0); // Position below ground level
+  poolBasin.receiveShadow = true;
+  poolGroup.add(poolBasin);
+  
+  // Create pool walls
+  const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x374151 });
+  
+  // North wall
+  const northWall = new THREE.Mesh(new THREE.BoxGeometry(poolWidth, poolDepth, 2), wallMaterial);
+  northWall.position.set(0, -poolDepth/2, -poolLength/2);
+  poolGroup.add(northWall);
+  
+  // South wall
+  const southWall = new THREE.Mesh(new THREE.BoxGeometry(poolWidth, poolDepth, 2), wallMaterial);
+  southWall.position.set(0, -poolDepth/2, poolLength/2);
+  poolGroup.add(southWall);
+  
+  // East wall
+  const eastWall = new THREE.Mesh(new THREE.BoxGeometry(2, poolDepth, poolLength), wallMaterial);
+  eastWall.position.set(poolWidth/2, -poolDepth/2, 0);
+  poolGroup.add(eastWall);
+  
+  // West wall
+  const westWall = new THREE.Mesh(new THREE.BoxGeometry(2, poolDepth, poolLength), wallMaterial);
+  westWall.position.set(-poolWidth/2, -poolDepth/2, 0);
+  poolGroup.add(westWall);
+  
+  // Create pool ramp for easy entry/exit
+  createPoolRamp(poolWidth, poolLength, poolDepth);
+  
+  // Create underwater cave entrance at the bottom of the pool
+  createUnderwaterCave(poolWidth, poolLength, poolDepth);
+  
+  scene.add(poolGroup);
+  
+  // Add pool walls to collision objects
+  const poolBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(0, -poolDepth/2, 0),
+    new THREE.Vector3(poolWidth, poolDepth, poolLength)
+  );
+  collisionObjects.push(poolBox);
+}
+
+function createPoolRamp(poolWidth, poolLength, poolDepth) {
+  // Create a ramp that goes halfway down into the pool
+  const rampWidth = 20;
+  const rampLength = poolLength / 2; // Half the pool length
+  const rampHeight = poolDepth / 2;  // Half the pool depth
+  
+  const rampGeometry = new THREE.BoxGeometry(rampWidth, 1, rampLength);
+  const rampMaterial = new THREE.MeshLambertMaterial({ color: 0x6B7280 });
+  
+  const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
+  
+  // Position ramp at the edge of the pool, sloping down
+  ramp.position.set(0, -rampHeight/2, -poolLength/4);
+  ramp.rotation.x = -Math.atan2(rampHeight, rampLength); // Slope downward
+  
+  ramp.castShadow = true;
+  ramp.receiveShadow = true;
+  poolGroup.add(ramp);
+  
+  // Add ramp to collision objects
+  const rampBox = new THREE.Box3().setFromObject(ramp);
+  collisionObjects.push(rampBox);
+  roofObjects.push({
+    box: rampBox,
+    position: ramp.position.clone(),
+    width: rampWidth,
+    depth: rampLength
+  });
+}
+
+function createUnderwaterCave(poolWidth, poolLength, poolDepth) {
+  underwaterCaveGroup = new THREE.Group();
+  
+  // Create cave entrance at the bottom of the pool
+  const caveEntranceGeometry = new THREE.CylinderGeometry(15, 15, 5, 16);
+  const caveEntranceMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1F2937,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const caveEntrance = new THREE.Mesh(caveEntranceGeometry, caveEntranceMaterial);
+  caveEntrance.position.set(0, -poolDepth - 2.5, 0); // Below the pool bottom
+  caveEntrance.rotation.x = Math.PI / 2; // Lay horizontally
+  
+  underwaterCaveGroup.add(caveEntrance);
+  
+  // Create the underwater cave (large spherical chamber)
+  const caveGeometry = new THREE.SphereGeometry(60, 32, 32);
+  const caveMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1E40AF,
+    transparent: true,
+    opacity: 0.3,
+    wireframe: false
+  });
+  
+  const cave = new THREE.Mesh(caveGeometry, caveMaterial);
+  cave.position.set(0, -poolDepth - 70, 0); // Position below the pool
+  
+  underwaterCaveGroup.add(cave);
+  
+  // Add glowing crystals to the cave walls
+  for (let i = 0; i < 20; i++) {
+    const crystalGeometry = new THREE.ConeGeometry(2, 8, 4);
+    const crystalMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0x60A5FA,
+      emissive: 0x1D4ED8,
+      emissiveIntensity: 0.5
+    });
+    
+    const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
+    
+    // Position crystals randomly on the cave walls
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const radius = 58; // Just inside the cave wall
+    
+    crystal.position.set(
+      radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.sin(phi) * Math.sin(theta) - poolDepth - 70,
+      radius * Math.cos(phi)
+    );
+    
+    // Rotate crystals to point outward from the cave center
+    crystal.lookAt(0, -poolDepth - 70, 0);
+    
+    underwaterCaveGroup.add(crystal);
+  }
+  
+  scene.add(underwaterCaveGroup);
+  
+  // Add cave to collision objects (but with no gravity physics)
+  const caveBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(0, -poolDepth - 70, 0),
+    new THREE.Vector3(120, 120, 120)
+  );
+  collisionObjects.push(caveBox);
 }
 
 function createMoonBridge() {
@@ -781,61 +949,116 @@ function createMoonBridge() {
   });
   
   const bridgeWidth = 20;
-  const bridgeLength = 1200; // Distance to moon
   const bridgeHeight = 5;
+  const segments = 200; // More segments for smooth S-curve
   
-  // Create bridge platform
-  const bridgeGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, bridgeLength);
-  const bridge = new THREE.Mesh(bridgeGeometry, bridgeMaterial);
-  bridge.position.set(0, 50, -bridgeLength/2);
-  bridge.castShadow = true;
-  bridge.receiveShadow = true;
-  bridgeGroup.add(bridge);
+  // Create S-shaped bridge using parametric equations
+  for (let i = 0; i < segments; i++) {
+    const t = i / segments;
+    const nextT = (i + 1) / segments;
+    
+    // S-curve parametric equations
+    // x(t) = sin(2πt) * curve amplitude
+    // z(t) = t * total length
+    // y(t) = t * total height (gradual elevation)
+    
+    const curveAmplitude = 150; // How wide the S-curve swings
+    const totalLength = 1600; // Total bridge length
+    const totalHeight = 750; // From ground (5) to moon surface (755)
+    
+    const x1 = Math.sin(t * Math.PI * 2) * curveAmplitude;
+    const z1 = t * totalLength - totalLength/2;
+    const y1 = 5 + t * totalHeight; // Start at ground level, end at moon level
+    
+    const x2 = Math.sin(nextT * Math.PI * 2) * curveAmplitude;
+    const z2 = nextT * totalLength - totalLength/2;
+    const y2 = 5 + nextT * totalHeight;
+    
+    // Calculate segment length and direction
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dz = z2 - z1;
+    const segmentLength = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    
+    // Create bridge segment
+    const segmentGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, segmentLength);
+    const segment = new THREE.Mesh(segmentGeometry, bridgeMaterial);
+    
+    // Position segment at midpoint
+    segment.position.set(
+      (x1 + x2) / 2,
+      (y1 + y2) / 2,
+      (z1 + z2) / 2
+    );
+    
+    // Rotate segment to follow the curve
+    segment.rotation.y = Math.atan2(dx, dz);
+    segment.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+    
+    segment.castShadow = true;
+    segment.receiveShadow = true;
+    bridgeGroup.add(segment);
+    
+    // Add segment to collision objects
+    const segmentBox = new THREE.Box3().setFromObject(segment);
+    collisionObjects.push(segmentBox);
+    roofObjects.push({
+      box: segmentBox,
+      position: segment.position.clone(),
+      width: bridgeWidth,
+      depth: segmentLength
+    });
+    
+    // Create guardrails for this segment
+    createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength);
+  }
   
-  // Add bridge to collision objects
-  const bridgeBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(0, 50, -bridgeLength/2),
-    new THREE.Vector3(bridgeWidth, bridgeHeight, bridgeLength)
-  );
-  collisionObjects.push(bridgeBox);
-  roofObjects.push({
-    box: bridgeBox,
-    position: new THREE.Vector3(0, 50, -bridgeLength/2),
-    width: bridgeWidth,
-    depth: bridgeLength
-  });
-  
-  // Create guardrails - LEFT SIDE
-  const railGeometry = new THREE.BoxGeometry(1, 10, bridgeLength);
+  scene.add(bridgeGroup);
+}
+
+function createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength) {
+  const railGeometry = new THREE.BoxGeometry(1, 10, segmentLength);
   const railMaterial = new THREE.MeshLambertMaterial({ color: 0x4B5563 });
   
+  // Calculate direction vector for the segment
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dz = z2 - z1;
+  
+  // Calculate perpendicular vector for rail offset
+  const length = Math.sqrt(dx*dx + dz*dz);
+  const perpX = -dz / length * 10.5; // Offset from bridge center
+  const perpZ = dx / length * 10.5;
+  
+  // Left rail
   const leftRail = new THREE.Mesh(railGeometry, railMaterial);
-  leftRail.position.set(-bridgeWidth/2 - 0.5, 55, -bridgeLength/2);
+  leftRail.position.set(
+    (x1 + x2) / 2 + perpX,
+    (y1 + y2) / 2 + 5,
+    (z1 + z2) / 2 + perpZ
+  );
+  leftRail.rotation.y = Math.atan2(dx, dz);
+  leftRail.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
   leftRail.castShadow = true;
-  leftRail.receiveShadow = true;
   bridgeGroup.add(leftRail);
   
-  // Create guardrails - RIGHT SIDE
+  // Right rail
   const rightRail = new THREE.Mesh(railGeometry, railMaterial);
-  rightRail.position.set(bridgeWidth/2 + 0.5, 55, -bridgeLength/2);
+  rightRail.position.set(
+    (x1 + x2) / 2 - perpX,
+    (y1 + y2) / 2 + 5,
+    (z1 + z2) / 2 - perpZ
+  );
+  rightRail.rotation.y = Math.atan2(dx, dz);
+  rightRail.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
   rightRail.castShadow = true;
-  rightRail.receiveShadow = true;
   bridgeGroup.add(rightRail);
   
   // Add rails to collision objects
-  const leftRailBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(-bridgeWidth/2 - 0.5, 55, -bridgeLength/2),
-    new THREE.Vector3(1, 10, bridgeLength)
-  );
+  const leftRailBox = new THREE.Box3().setFromObject(leftRail);
+  const rightRailBox = new THREE.Box3().setFromObject(rightRail);
   collisionObjects.push(leftRailBox);
-  
-  const rightRailBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(bridgeWidth/2 + 0.5, 55, -bridgeLength/2),
-    new THREE.Vector3(1, 10, bridgeLength)
-  );
   collisionObjects.push(rightRailBox);
-  
-  scene.add(bridgeGroup);
 }
 
 function createBoundaryWalls() {
@@ -886,6 +1109,11 @@ function createCity() {
   
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
+      // Skip the center position where the pool will be
+      if (x === Math.floor(gridSize/2) && z === Math.floor(gridSize/2)) {
+        continue;
+      }
+      
       // Make buildings WIDER but not as tall
       const width = 40 + Math.random() * 30;  // Increased from 20-35 to 40-70
       const depth = 40 + Math.random() * 30;  // Increased from 20-35 to 40-70
@@ -964,8 +1192,9 @@ function createMoon() {
   const moonMaterial = new THREE.MeshLambertMaterial({ color: 0xE5E7EB });
   moon = new THREE.Mesh(moonGeometry, moonMaterial);
   
-  // Position the moon at the end of the bridge
-  moon.position.set(0, 800, -1400);
+  // Position the moon at the end of the S-bridge
+  // The bridge ends at z = 800 (1600/2) and y = 755 (5 + 750)
+  moon.position.set(0, 755, 800);
   moon.castShadow = true;
   moon.receiveShadow = true;
   moonGroup.add(moon);
@@ -1113,6 +1342,13 @@ function initMiniMap() {
   ground.rotation.x = -Math.PI / 2;
   miniMapScene.add(ground);
   
+  // Add pool indicator to mini-map
+  const poolGeometry = new THREE.PlaneGeometry(80, 80);
+  const poolMaterial = new THREE.MeshBasicMaterial({ color: 0x1E40AF });
+  const poolIndicator = new THREE.Mesh(poolGeometry, poolMaterial);
+  poolIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(poolIndicator);
+  
   // Add player indicator
   const playerGeometry = new THREE.CircleGeometry(10, 8);
   const playerMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
@@ -1164,12 +1400,20 @@ function updateLocationInfo() {
   const z = playerAvatar.position.z;
   const y = playerAvatar.position.y;
   
+  // Check if player is in the underwater cave
+  if (isInUnderwaterCave) {
+    locationInfo.textContent = "Location: Underwater Cave (Zero Gravity)";
+  }
+  // Check if player is in the swimming pool
+  else if (isInWater) {
+    locationInfo.textContent = "Location: Swimming Pool (Floating)";
+  }
   // Check if player is on the moon
-  if (y > 600) {
+  else if (y > 600) {
     locationInfo.textContent = "Location: Moon Surface (Floating)";
   }
   // Check if player is on the bridge
-  else if (Math.abs(x) < 12 && z < -50 && z > -1200 && y > 45 && y < 55) {
+  else if (y > 50) {
     locationInfo.textContent = "Location: Moon Bridge (Floating)";
   }
   // Check if player is on a building roof
@@ -1277,6 +1521,49 @@ function animate() {
       playerAvatar.position.copy(currentPosition);
     }
     
+    // Check if player is in the swimming pool
+    const poolBounds = new THREE.Box3(
+      new THREE.Vector3(-40, -15, -40),
+      new THREE.Vector3(40, 0, 40)
+    );
+    isInWater = poolBounds.containsPoint(playerAvatar.position);
+    
+    // Check if player is in the underwater cave
+    const caveBounds = new THREE.Box3(
+      new THREE.Vector3(-60, -150, -60),
+      new THREE.Vector3(60, -90, 60)
+    );
+    isInUnderwaterCave = caveBounds.containsPoint(playerAvatar.position);
+    
+    // Apply underwater physics if in water
+    if (isInWater || isInUnderwaterCave) {
+      // Reduce gravity for underwater movement
+      velocity.y *= 0.9;
+      
+      // Add buoyancy
+      if (playerAvatar.position.y < -5) {
+        velocity.y += 50 * delta;
+      }
+      
+      // If in the underwater cave, apply zero-gravity physics
+      if (isInUnderwaterCave) {
+        velocity.y *= 0.95; // Very slow descent
+        // Allow free floating movement in all directions
+        if (moveForward) {
+          newPosition.add(forward.clone().multiplyScalar(moveSpeed * 0.7));
+        }
+        if (moveBackward) {
+          newPosition.sub(forward.clone().multiplyScalar(moveSpeed * 0.7));
+        }
+        if (moveLeft) {
+          newPosition.sub(right.clone().multiplyScalar(moveSpeed * 0.7));
+        }
+        if (moveRight) {
+          newPosition.add(right.clone().multiplyScalar(moveSpeed * 0.7));
+        }
+      }
+    }
+    
     // Prevent going outside world boundaries
     if (playerAvatar.position.x > worldBoundary) {
       playerAvatar.position.x = worldBoundary;
@@ -1343,7 +1630,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function createNFTPlane(nftData, position, isMoonNFT = false) {
+function createNFTPlane(nftData, position, isMoonNFT = false, isUnderwaterNFT = false) {
   // Create a plane for the NFT image
   const geometry = new THREE.PlaneGeometry(8, 8);
   
@@ -1373,10 +1660,19 @@ function createNFTPlane(nftData, position, isMoonNFT = false) {
   scene.add(plane);
   nftObjects.push(plane);
   
-  // Add a subtle glow effect - different color for moon NFTs
+  // Add a subtle glow effect - different color for different locations
   const glowGeometry = new THREE.PlaneGeometry(8.5, 8.5);
+  let glowColor;
+  if (isMoonNFT) {
+    glowColor = 0xFFD700; // Gold for moon
+  } else if (isUnderwaterNFT) {
+    glowColor = 0x00FFFF; // Cyan for underwater
+  } else {
+    glowColor = 0x3b82f6; // Blue for earth
+  }
+  
   const glowMaterial = new THREE.MeshBasicMaterial({ 
-    color: isMoonNFT ? 0xFFD700 : 0x3b82f6, // Gold for moon, blue for earth
+    color: glowColor,
     transparent: true,
     opacity: 0.4,
     side: THREE.DoubleSide
@@ -1483,15 +1779,17 @@ async function loadNFTs() {
   });
   nftObjects = [];
   
-  // Split NFTs between Earth, Moon, and Bridge
+  // Split NFTs between Earth, Moon, Bridge, and Underwater Cave
   const totalNFTs = data.length;
-  const earthCount = Math.floor(totalNFTs * 0.5); // 50% on Earth
+  const earthCount = Math.floor(totalNFTs * 0.35); // 35% on Earth (reduced from 50%)
   const moonCount = Math.floor(totalNFTs * 0.25); // 25% on Moon
-  const bridgeCount = totalNFTs - earthCount - moonCount; // 25% on Bridge
+  const underwaterCount = Math.floor(totalNFTs * 0.15); // 15% in underwater cave
+  const bridgeCount = totalNFTs - earthCount - moonCount - underwaterCount; // 25% on Bridge
   
   const earthNFTs = data.slice(0, earthCount);
   const moonNFTs = data.slice(earthCount, earthCount + moonCount);
-  const bridgeNFTs = data.slice(earthCount + moonCount);
+  const underwaterNFTs = data.slice(earthCount + moonCount, earthCount + moonCount + underwaterCount);
+  const bridgeNFTs = data.slice(earthCount + moonCount + underwaterCount);
   
   // Position Earth NFTs randomly across the terrain
   earthNFTs.forEach((nft, index) => {
@@ -1519,7 +1817,7 @@ async function loadNFTs() {
       x: x + randomOffsetX, 
       y: terrainHeight + 8, // Higher for floating players
       z: z + randomOffsetZ 
-    }, false);
+    }, false, false);
   });
   
   // Position Moon NFTs on the moon surface
@@ -1538,27 +1836,45 @@ async function loadNFTs() {
       x: moon.position.x + x, 
       y: moon.position.y + y, 
       z: moon.position.z + z 
-    }, true);
+    }, true, false);
   });
   
-  // Position Bridge NFTs along the bridge
-  bridgeNFTs.forEach((nft, index) => {
-    const bridgeLength = 1200;
-    const bridgeStartZ = -50;
-    const bridgeEndZ = -bridgeLength + 50;
+  // Position Underwater NFTs in the underwater cave
+  underwaterNFTs.forEach((nft, index) => {
+    // Position NFTs randomly in the underwater cave
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const radius = 50; // Inside the cave
     
-    // Position NFTs evenly along the bridge
-    const zPos = bridgeStartZ + (index / bridgeNFTs.length) * (bridgeEndZ - bridgeStartZ);
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta) - 120; // Center of cave
+    const z = radius * Math.cos(phi);
     
-    // Add some horizontal variation but keep within bridge width
-    const xPos = (Math.random() - 0.5) * 16; // Keep within bridge width (20 - 4 for safety)
-    
-    // Position at bridge height
     createNFTPlane(nft, { 
-      x: xPos, 
-      y: 53, // Slightly above bridge surface
-      z: zPos 
-    }, false);
+      x: x, 
+      y: y, 
+      z: z 
+    }, false, true);
+  });
+  
+  // Position Bridge NFTs along the S-bridge
+  bridgeNFTs.forEach((nft, index) => {
+    const t = index / bridgeNFTs.length;
+    
+    // Use same S-curve equations as the bridge
+    const curveAmplitude = 150;
+    const totalLength = 1600;
+    const totalHeight = 750;
+    
+    const x = Math.sin(t * Math.PI * 2) * curveAmplitude;
+    const z = t * totalLength - totalLength/2;
+    const y = 5 + t * totalHeight + 3; // Slightly above bridge surface
+    
+    createNFTPlane(nft, { 
+      x: x, 
+      y: y, 
+      z: z 
+    }, false, false);
   });
 }
 
