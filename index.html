@@ -116,6 +116,7 @@
     font-weight: bold;
     user-select: none;
     -webkit-user-select: none;
+    touch-action: manipulation;
   }
   
   #look-controls {
@@ -561,24 +562,24 @@ let raycaster, mouse;
 let currentIntersected = null;
 let miniMapScene, miniMapCamera, miniMapRenderer;
 let playerAvatar;
-let worldSize = 800; // Reduced world size to prevent roaming off
-let worldBoundary = worldSize / 2 - 50; // Boundary with 50px buffer
+let worldSize = 800;
+let worldBoundary = worldSize / 2 - 50;
 let moon;
 let clock = new THREE.Clock();
 let prevTime = 0;
 
-// Collision detection variables - MODIFIED FOR ROOF JUMPING
+// Collision detection variables - IMPROVED
 let collisionObjects = [];
-let roofObjects = []; // For roof surfaces you can walk on
+let roofObjects = [];
 let playerCollider = new THREE.Box3();
-let playerSize = new THREE.Vector3(2, 10, 2); // Player collision box size
-let playerOnRoof = false; // Track if player is on a roof
-let currentRoof = null; // Track which roof player is on
+let playerSize = new THREE.Vector3(2, 10, 2);
+let playerOnRoof = false;
+let currentRoof = null;
 
 function init3DScene() {
   // Create scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x000033); // Dark blue for space
+  scene.background = new THREE.Color(0x000033);
   scene.fog = new THREE.Fog(0x000033, 100, 2000);
   
   // Create camera
@@ -589,6 +590,7 @@ function init3DScene() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.getElementById('canvas-container').appendChild(renderer.domElement);
   
   // Add lighting
@@ -703,7 +705,7 @@ function createWorld() {
   // Create massive ground plane
   const groundGeometry = new THREE.PlaneGeometry(worldSize, worldSize, 100, 100);
   const groundMaterial = new THREE.MeshLambertMaterial({ 
-    color: 0x4ADE80, // Bright green for grass
+    color: 0x4ADE80,
     side: THREE.DoubleSide
   });
   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -711,7 +713,7 @@ function createWorld() {
   ground.receiveShadow = true;
   scene.add(ground);
   
-  // Create city with buildings (only buildings that are on the map)
+  // Create city with buildings
   createCity();
   
   // Create moon in the sky
@@ -763,15 +765,16 @@ function createCity() {
   const cityGroup = new THREE.Group();
   const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
   
-  // Create only buildings that are on the map (reduced grid size)
-  const gridSize = 5; // Further reduced from 11 to 5 (25 buildings total)
-  const spacing = 60; // Increased spacing for better navigation
+  // Create buildings with WIDER dimensions
+  const gridSize = 5;
+  const spacing = 120; // Increased spacing for wider buildings
   
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
-      const height = 30 + Math.random() * 70; // Slightly taller buildings
-      const width = 20 + Math.random() * 15;
-      const depth = 20 + Math.random() * 15;
+      // Make buildings WIDER but not as tall
+      const width = 40 + Math.random() * 30;  // Increased from 20-35 to 40-70
+      const depth = 40 + Math.random() * 30;  // Increased from 20-35 to 40-70
+      const height = 20 + Math.random() * 40; // Reduced height for better proportions
       
       const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
       const buildingMaterial = new THREE.MeshLambertMaterial({ 
@@ -780,11 +783,11 @@ function createCity() {
       
       const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
       
-      // Position buildings in a tighter cluster in the center
+      // Position buildings with more spacing
       building.position.set(
         (x - gridSize/2) * spacing,
         height / 2,
-        (z - gridSize/2) * spacing - 100 // Moved closer to center
+        (z - gridSize/2) * spacing - 100
       );
       
       building.castShadow = true;
@@ -808,13 +811,13 @@ function createBuildingRoof(x, y, z, width, depth) {
   // Create a solid roof plane for collision
   const roofGeometry = new THREE.PlaneGeometry(width, depth);
   const roofMaterial = new THREE.MeshLambertMaterial({ 
-    color: 0x1F2937, // Dark gray for roofs
+    color: 0x1F2937,
     side: THREE.DoubleSide
   });
   
   const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-  roof.position.set(x, y + 0.1, z); // Position slightly above the building
-  roof.rotation.x = Math.PI / 2; // Rotate to be horizontal
+  roof.position.set(x, y + 0.1, z);
+  roof.rotation.x = Math.PI / 2;
   
   // Make the roof solid and visible
   roof.receiveShadow = true;
@@ -1080,7 +1083,7 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// MODIFIED COLLISION DETECTION FOR ROOF JUMPING
+// IMPROVED COLLISION DETECTION
 function checkCollisions(newPosition) {
   // Update player collider position and size
   playerCollider.setFromCenterAndSize(
@@ -1098,7 +1101,7 @@ function checkCollisions(newPosition) {
   return false; // No collision
 }
 
-// NEW FUNCTION: Check if player is on a roof
+// IMPROVED: Check if player is on a roof
 function checkRoofCollision(newPosition) {
   playerOnRoof = false;
   currentRoof = null;
@@ -1122,7 +1125,7 @@ function checkRoofCollision(newPosition) {
   return false;
 }
 
-// NEW FUNCTION: Snap player to roof when landing
+// IMPROVED: Snap player to roof when landing
 function snapToRoof(newPosition) {
   if (currentRoof) {
     newPosition.y = currentRoof.box.max.y;
@@ -1167,7 +1170,6 @@ function animate() {
     newPosition.y += (velocity.y * delta);
     
     // Check if player is on a roof
-    const wasOnRoof = playerOnRoof;
     checkRoofCollision(newPosition);
     
     // If player is on a roof, snap to roof height
@@ -1261,7 +1263,6 @@ function animate() {
     newPosition.y += (velocity.y * delta);
     
     // Check if player is on a roof
-    const wasOnRoof = playerOnRoof;
     checkRoofCollision(newPosition);
     
     // If player is on a roof, snap to roof height
