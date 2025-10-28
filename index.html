@@ -362,8 +362,8 @@
 <div id="canvas-container"></div>
 
 <div id="instructions">
-  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Follow the S-shaped bridge to the moon! Find the swimming pool in the center with an underwater cave!</div>
-  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere! Follow the S-shaped bridge to the moon! Find the swimming pool in the center with an underwater cave!</div>
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Find the moon bridge in the center spiraling up to the moon! Swim in the pool and explore the underwater cave with zero gravity!</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs everywhere! Find the moon bridge in the center spiraling up to the moon! Swim in the pool and explore the underwater cave with zero gravity!</div>
 </div>
 
 <div id="location-info">
@@ -763,13 +763,13 @@ function createWorld() {
   ground.receiveShadow = true;
   scene.add(ground);
   
-  // Create city with buildings
+  // Create city with buildings (positioned around the center)
   createCity();
   
-  // Create moon in the sky
+  // Create moon in the sky (moved further left)
   createMoon();
   
-  // Create S-shaped bridge to the moon with guardrails
+  // Create spiral bridge to the moon starting from center
   createMoonBridge();
   
   // Create swimming pool and underwater cave
@@ -823,49 +823,67 @@ function createSwimmingPool() {
   westWall.position.set(-poolWidth/2, -poolDepth/2, 0);
   poolGroup.add(westWall);
   
-  // Create pool ramp for easy entry/exit
-  createPoolRamp(poolWidth, poolLength, poolDepth);
+  // Create pool ramps for easy entry/exit
+  createPoolRamps(poolWidth, poolLength, poolDepth);
   
   // Create underwater cave entrance at the bottom of the pool
   createUnderwaterCave(poolWidth, poolLength, poolDepth);
   
+  // Position pool to the side (not in center where bridge starts)
+  poolGroup.position.set(150, 0, 150);
   scene.add(poolGroup);
   
   // Add pool walls to collision objects
   const poolBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(0, -poolDepth/2, 0),
+    new THREE.Vector3(150, -poolDepth/2, 150),
     new THREE.Vector3(poolWidth, poolDepth, poolLength)
   );
   collisionObjects.push(poolBox);
 }
 
-function createPoolRamp(poolWidth, poolLength, poolDepth) {
-  // Create a ramp that goes halfway down into the pool
-  const rampWidth = 20;
-  const rampLength = poolLength / 2; // Half the pool length
-  const rampHeight = poolDepth / 2;  // Half the pool depth
+function createPoolRamps(poolWidth, poolLength, poolDepth) {
+  // Create entry ramp (sloping down into pool)
+  const entryRampWidth = 20;
+  const entryRampLength = poolLength / 2;
+  const entryRampHeight = poolDepth / 2;
   
-  const rampGeometry = new THREE.BoxGeometry(rampWidth, 1, rampLength);
+  const entryRampGeometry = new THREE.BoxGeometry(entryRampWidth, 1, entryRampLength);
   const rampMaterial = new THREE.MeshLambertMaterial({ color: 0x6B7280 });
   
-  const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
+  const entryRamp = new THREE.Mesh(entryRampGeometry, rampMaterial);
+  entryRamp.position.set(0, -entryRampHeight/2, -poolLength/4);
+  entryRamp.rotation.x = -Math.atan2(entryRampHeight, entryRampLength); // Slope downward
+  entryRamp.castShadow = true;
+  entryRamp.receiveShadow = true;
+  poolGroup.add(entryRamp);
   
-  // Position ramp at the edge of the pool, sloping down
-  ramp.position.set(0, -rampHeight/2, -poolLength/4);
-  ramp.rotation.x = -Math.atan2(rampHeight, rampLength); // Slope downward
+  // Create exit ramp (sloping up from bottom of pool)
+  const exitRampWidth = 20;
+  const exitRampLength = poolLength / 2;
+  const exitRampGeometry = new THREE.BoxGeometry(exitRampWidth, 1, exitRampLength);
+  const exitRamp = new THREE.Mesh(exitRampGeometry, rampMaterial);
+  exitRamp.position.set(0, -poolDepth + 0.5, poolLength/4); // Position at bottom of pool
+  exitRamp.rotation.x = Math.atan2(poolDepth/2, exitRampLength); // Slope upward
+  exitRamp.castShadow = true;
+  exitRamp.receiveShadow = true;
+  poolGroup.add(exitRamp);
   
-  ramp.castShadow = true;
-  ramp.receiveShadow = true;
-  poolGroup.add(ramp);
-  
-  // Add ramp to collision objects
-  const rampBox = new THREE.Box3().setFromObject(ramp);
-  collisionObjects.push(rampBox);
+  // Add ramps to collision objects
+  const entryRampBox = new THREE.Box3().setFromObject(entryRamp);
+  const exitRampBox = new THREE.Box3().setFromObject(exitRamp);
+  collisionObjects.push(entryRampBox);
+  collisionObjects.push(exitRampBox);
   roofObjects.push({
-    box: rampBox,
-    position: ramp.position.clone(),
-    width: rampWidth,
-    depth: rampLength
+    box: entryRampBox,
+    position: entryRamp.position.clone(),
+    width: entryRampWidth,
+    depth: entryRampLength
+  });
+  roofObjects.push({
+    box: exitRampBox,
+    position: exitRamp.position.clone(),
+    width: exitRampWidth,
+    depth: exitRampLength
   });
 }
 
@@ -928,11 +946,12 @@ function createUnderwaterCave(poolWidth, poolLength, poolDepth) {
     underwaterCaveGroup.add(crystal);
   }
   
+  underwaterCaveGroup.position.set(150, 0, 150);
   scene.add(underwaterCaveGroup);
   
   // Add cave to collision objects (but with no gravity physics)
   const caveBox = new THREE.Box3().setFromCenterAndSize(
-    new THREE.Vector3(0, -poolDepth - 70, 0),
+    new THREE.Vector3(150, -poolDepth - 70, 150),
     new THREE.Vector3(120, 120, 120)
   );
   collisionObjects.push(caveBox);
@@ -950,28 +969,31 @@ function createMoonBridge() {
   
   const bridgeWidth = 20;
   const bridgeHeight = 5;
-  const segments = 200; // More segments for smooth S-curve
+  const segments = 200; // More segments for smooth spiral
   
-  // Create S-shaped bridge using parametric equations
+  // Create spiral bridge starting from center with 40-degree incline
   for (let i = 0; i < segments; i++) {
     const t = i / segments;
     const nextT = (i + 1) / segments;
     
-    // S-curve parametric equations
-    // x(t) = sin(2πt) * curve amplitude
-    // z(t) = t * total length
-    // y(t) = t * total height (gradual elevation)
+    // Spiral parametric equations starting from center
+    const spiralTurns = 3; // Number of spiral turns
+    const maxRadius = 300; // Maximum spiral radius
+    const totalHeight = 750; // Total height from ground to moon
     
-    const curveAmplitude = 150; // How wide the S-curve swings
-    const totalLength = 1600; // Total bridge length
-    const totalHeight = 750; // From ground (5) to moon surface (755)
+    // Spiral coordinates
+    const angle = t * Math.PI * 2 * spiralTurns;
+    const radius = t * maxRadius;
     
-    const x1 = Math.sin(t * Math.PI * 2) * curveAmplitude;
-    const z1 = t * totalLength - totalLength/2;
+    const x1 = Math.cos(angle) * radius;
+    const z1 = Math.sin(angle) * radius;
     const y1 = 5 + t * totalHeight; // Start at ground level, end at moon level
     
-    const x2 = Math.sin(nextT * Math.PI * 2) * curveAmplitude;
-    const z2 = nextT * totalLength - totalLength/2;
+    const nextAngle = nextT * Math.PI * 2 * spiralTurns;
+    const nextRadius = nextT * maxRadius;
+    
+    const x2 = Math.cos(nextAngle) * nextRadius;
+    const z2 = Math.sin(nextAngle) * nextRadius;
     const y2 = 5 + nextT * totalHeight;
     
     // Calculate segment length and direction
@@ -991,7 +1013,7 @@ function createMoonBridge() {
       (z1 + z2) / 2
     );
     
-    // Rotate segment to follow the curve
+    // Rotate segment to follow the spiral
     segment.rotation.y = Math.atan2(dx, dz);
     segment.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
     
@@ -1103,13 +1125,13 @@ function createCity() {
   const cityGroup = new THREE.Group();
   const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
   
-  // Create buildings with WIDER dimensions
+  // Create buildings with WIDER dimensions, positioned around the center
   const gridSize = 5;
   const spacing = 120; // Increased spacing for wider buildings
   
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
-      // Skip the center position where the pool will be
+      // Skip the center position where the bridge starts
       if (x === Math.floor(gridSize/2) && z === Math.floor(gridSize/2)) {
         continue;
       }
@@ -1126,7 +1148,7 @@ function createCity() {
       
       const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
       
-      // Position buildings with more spacing
+      // Position buildings with more spacing, offset from center
       building.position.set(
         (x - gridSize/2) * spacing,
         height / 2,
@@ -1192,9 +1214,8 @@ function createMoon() {
   const moonMaterial = new THREE.MeshLambertMaterial({ color: 0xE5E7EB });
   moon = new THREE.Mesh(moonGeometry, moonMaterial);
   
-  // Position the moon at the end of the S-bridge
-  // The bridge ends at z = 800 (1600/2) and y = 755 (5 + 750)
-  moon.position.set(0, 755, 800);
+  // Position the moon further left outside the main play area
+  moon.position.set(-600, 755, 0);
   moon.castShadow = true;
   moon.receiveShadow = true;
   moonGroup.add(moon);
@@ -1309,7 +1330,7 @@ function createPlayerAvatar() {
     group.add(avatar);
   }
   
-  // Position the entire group at the starting point
+  // Position the entire group at the starting point (center)
   group.position.set(0, hoverHeight, 0);
   group.castShadow = true;
   scene.add(group);
@@ -1346,8 +1367,21 @@ function initMiniMap() {
   const poolGeometry = new THREE.PlaneGeometry(80, 80);
   const poolMaterial = new THREE.MeshBasicMaterial({ color: 0x1E40AF });
   const poolIndicator = new THREE.Mesh(poolGeometry, poolMaterial);
+  poolIndicator.position.set(150, 0, 150);
   poolIndicator.rotation.x = -Math.PI / 2;
   miniMapScene.add(poolIndicator);
+  
+  // Add bridge indicator to mini-map (spiral pattern)
+  const bridgeIndicatorGeometry = new THREE.RingGeometry(0, 300, 36);
+  const bridgeIndicatorMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00FFFF,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.3
+  });
+  const bridgeIndicator = new THREE.Mesh(bridgeIndicatorGeometry, bridgeIndicatorMaterial);
+  bridgeIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(bridgeIndicator);
   
   // Add player indicator
   const playerGeometry = new THREE.CircleGeometry(10, 8);
@@ -1512,6 +1546,60 @@ function animate() {
       }
     }
     
+    // Check if player is in the swimming pool (adjusted for new pool position)
+    const poolBounds = new THREE.Box3(
+      new THREE.Vector3(150 - 40, -15, 150 - 40),
+      new THREE.Vector3(150 + 40, 0, 150 + 40)
+    );
+    isInWater = poolBounds.containsPoint(playerAvatar.position);
+    
+    // Check if player is in the underwater cave (adjusted for new position)
+    const caveBounds = new THREE.Box3(
+      new THREE.Vector3(150 - 60, -150, 150 - 60),
+      new THREE.Vector3(150 + 60, -90, 150 + 60)
+    );
+    isInUnderwaterCave = caveBounds.containsPoint(playerAvatar.position);
+    
+    // Apply underwater physics if in water - FIXED: Now gravity pulls you down
+    if (isInWater) {
+      // Apply downward gravity in water (pulls you to the bottom)
+      velocity.y -= 9.8 * 50.0 * delta; // Reduced gravity for water resistance
+      newPosition.y += (velocity.y * delta);
+      
+      // If at bottom of pool, stop falling
+      if (playerAvatar.position.y <= -15) {
+        velocity.y = 0;
+        newPosition.y = -15;
+        canJump = true;
+      }
+    }
+    
+    // If in the underwater cave, apply ZERO GRAVITY physics
+    if (isInUnderwaterCave) {
+      // Zero gravity - no downward force
+      velocity.y *= 0.98; // Very slight damping to prevent infinite floating
+      
+      // Allow free floating movement in all directions with zero gravity
+      if (moveForward) {
+        newPosition.add(forward.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveBackward) {
+        newPosition.sub(forward.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveLeft) {
+        newPosition.sub(right.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveRight) {
+        newPosition.add(right.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      
+      // In zero gravity, jumping should propel you upward
+      if (canJump && velocity.y === 0) {
+        // Allow upward movement with space bar in zero gravity
+        velocity.y += 200 * delta;
+      }
+    }
+    
     // Check for collisions before updating position
     if (!checkCollisions(newPosition)) {
       // No collision, update position
@@ -1519,49 +1607,6 @@ function animate() {
     } else {
       // Collision detected, revert to original position
       playerAvatar.position.copy(currentPosition);
-    }
-    
-    // Check if player is in the swimming pool
-    const poolBounds = new THREE.Box3(
-      new THREE.Vector3(-40, -15, -40),
-      new THREE.Vector3(40, 0, 40)
-    );
-    isInWater = poolBounds.containsPoint(playerAvatar.position);
-    
-    // Check if player is in the underwater cave
-    const caveBounds = new THREE.Box3(
-      new THREE.Vector3(-60, -150, -60),
-      new THREE.Vector3(60, -90, 60)
-    );
-    isInUnderwaterCave = caveBounds.containsPoint(playerAvatar.position);
-    
-    // Apply underwater physics if in water
-    if (isInWater || isInUnderwaterCave) {
-      // Reduce gravity for underwater movement
-      velocity.y *= 0.9;
-      
-      // Add buoyancy
-      if (playerAvatar.position.y < -5) {
-        velocity.y += 50 * delta;
-      }
-      
-      // If in the underwater cave, apply zero-gravity physics
-      if (isInUnderwaterCave) {
-        velocity.y *= 0.95; // Very slow descent
-        // Allow free floating movement in all directions
-        if (moveForward) {
-          newPosition.add(forward.clone().multiplyScalar(moveSpeed * 0.7));
-        }
-        if (moveBackward) {
-          newPosition.sub(forward.clone().multiplyScalar(moveSpeed * 0.7));
-        }
-        if (moveLeft) {
-          newPosition.sub(right.clone().multiplyScalar(moveSpeed * 0.7));
-        }
-        if (moveRight) {
-          newPosition.add(right.clone().multiplyScalar(moveSpeed * 0.7));
-        }
-      }
     }
     
     // Prevent going outside world boundaries
@@ -1831,7 +1876,7 @@ async function loadNFTs() {
     const y = radius * Math.sin(phi) * Math.sin(theta);
     const z = radius * Math.cos(phi);
     
-    // Offset by moon position
+    // Offset by moon position (moved left)
     createNFTPlane(nft, { 
       x: moon.position.x + x, 
       y: moon.position.y + y, 
@@ -1851,23 +1896,26 @@ async function loadNFTs() {
     const z = radius * Math.cos(phi);
     
     createNFTPlane(nft, { 
-      x: x, 
+      x: 150 + x, // Offset by pool position
       y: y, 
-      z: z 
+      z: 150 + z  // Offset by pool position
     }, false, true);
   });
   
-  // Position Bridge NFTs along the S-bridge
+  // Position Bridge NFTs along the spiral bridge
   bridgeNFTs.forEach((nft, index) => {
     const t = index / bridgeNFTs.length;
     
-    // Use same S-curve equations as the bridge
-    const curveAmplitude = 150;
-    const totalLength = 1600;
+    // Use same spiral equations as the bridge
+    const spiralTurns = 3;
+    const maxRadius = 300;
     const totalHeight = 750;
     
-    const x = Math.sin(t * Math.PI * 2) * curveAmplitude;
-    const z = t * totalLength - totalLength/2;
+    const angle = t * Math.PI * 2 * spiralTurns;
+    const radius = t * maxRadius;
+    
+    const x = Math.cos(angle) * radius;
+    const z = Math.sin(angle) * radius;
     const y = 5 + t * totalHeight + 3; // Slightly above bridge surface
     
     createNFTPlane(nft, { 
