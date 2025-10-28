@@ -554,7 +554,7 @@ if (isMobile) {
 }
 
 /* ==============================
-   3D SCENE SETUP
+   3D SCENE SETUP - THIRD PERSON
 ============================== */
 let scene, camera, renderer, controls;
 let nftObjects = [], environmentObjects = [], buildingObjects = [];
@@ -568,11 +568,24 @@ let moon;
 let clock = new THREE.Clock();
 let prevTime = 0;
 
-// Collision detection variables - IMPROVED
+// Third-person camera variables
+let cameraDistance = 25;
+let cameraHeight = 10;
+let cameraAngle = 0;
+let targetCameraAngle = 0;
+
+// Floating board variables
+let hoverBoard;
+let hoverHeight = 3; // Height above ground
+let hoverBobSpeed = 2; // Bobbing speed
+let hoverBobAmount = 0.3; // Bobbing amount
+let hoverTime = 0;
+
+// Collision detection variables
 let collisionObjects = [];
 let roofObjects = [];
 let playerCollider = new THREE.Box3();
-let playerSize = new THREE.Vector3(2, 10, 2);
+let playerSize = new THREE.Vector3(4, 2, 4); // Wider but shorter for floating board
 let playerOnRoof = false;
 let currentRoof = null;
 
@@ -582,9 +595,8 @@ function init3DScene() {
   scene.background = new THREE.Color(0x000033);
   scene.fog = new THREE.Fog(0x000033, 100, 2000);
   
-  // Create camera
+  // Create camera - Third person perspective
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-  camera.position.set(0, 10, 50);
   
   // Create renderer
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -613,8 +625,11 @@ function init3DScene() {
   // Create the world
   createWorld();
   
-  // Create player avatar
+  // Create player avatar with floating board
   createPlayerAvatar();
+  
+  // Set initial camera position for third-person view
+  updateThirdPersonCamera();
   
   // Set up controls
   if (!isMobile) {
@@ -685,6 +700,13 @@ function init3DScene() {
     
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
+    
+    // Mouse movement for third-person camera
+    document.addEventListener('mousemove', (event) => {
+      if (controls && controls.isLocked) {
+        targetCameraAngle -= event.movementX * 0.002;
+      }
+    });
   }
   
   // Set up raycaster for object interaction
@@ -699,6 +721,28 @@ function init3DScene() {
   
   // Start animation
   animate();
+}
+
+function updateThirdPersonCamera() {
+  if (!playerAvatar) return;
+  
+  // Smoothly interpolate camera angle
+  cameraAngle += (targetCameraAngle - cameraAngle) * 0.1;
+  
+  // Calculate camera position behind and above the player
+  const playerPosition = playerAvatar.position.clone();
+  const offset = new THREE.Vector3(
+    Math.sin(cameraAngle) * cameraDistance,
+    cameraHeight,
+    Math.cos(cameraAngle) * cameraDistance
+  );
+  
+  camera.position.copy(playerPosition).add(offset);
+  
+  // Look at a point slightly above the player's position
+  const lookAtPosition = playerPosition.clone();
+  lookAtPosition.y += 3; // Look at center of avatar
+  camera.lookAt(lookAtPosition);
 }
 
 function createWorld() {
@@ -880,48 +924,51 @@ function createMoon() {
 }
 
 function createPlayerAvatar() {
-  // Create a simple 3D representation of the selected avatar
+  // Create a group for the entire player (avatar + hover board)
   const group = new THREE.Group();
   
+  // Create the silver hover board
+  const boardGeometry = new THREE.CylinderGeometry(2, 2, 0.3, 32);
+  const boardMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xC0C0C0, // Silver color
+    metalness: 0.8,
+    roughness: 0.2
+  });
+  hoverBoard = new THREE.Mesh(boardGeometry, boardMaterial);
+  hoverBoard.rotation.x = Math.PI / 2; // Lay flat
+  hoverBoard.castShadow = true;
+  hoverBoard.receiveShadow = true;
+  group.add(hoverBoard);
+  
+  // Add green underglow to the hover board
+  const underglowGeometry = new THREE.CylinderGeometry(2.2, 2.2, 0.1, 32);
+  const underglowMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00FF00, // Bright green
+    transparent: true,
+    opacity: 0.7
+  });
+  const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
+  underglow.rotation.x = Math.PI / 2;
+  underglow.position.y = -0.2; // Position below the board
+  group.add(underglow);
+  
+  // Create the avatar standing on the board
+  let avatar;
   if (selectedAvatar === 'boy') {
     // Create boy avatar - blue color scheme
     const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
     const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.y = 1.5;
-    group.add(body);
     
     const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
     const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
     const head = new THREE.Mesh(headGeometry, headMaterial);
     head.position.y = 2.8;
-    group.add(head);
     
-    // Add arms
-    const armGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1, 6);
-    const armMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
-    
-    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.7, 1.5, 0);
-    leftArm.rotation.z = Math.PI / 6;
-    group.add(leftArm);
-    
-    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.7, 1.5, 0);
-    rightArm.rotation.z = -Math.PI / 6;
-    group.add(rightArm);
-    
-    // Add legs
-    const legGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 6);
-    const legMaterial = new THREE.MeshLambertMaterial({ color: 0x1E40AF });
-    
-    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
-    leftLeg.position.set(-0.3, 0.5, 0);
-    group.add(leftLeg);
-    
-    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-    rightLeg.position.set(0.3, 0.5, 0);
-    group.add(rightLeg);
+    avatar = new THREE.Group();
+    avatar.add(body);
+    avatar.add(head);
     
   } else if (selectedAvatar === 'girl') {
     // Create girl avatar - pink color scheme
@@ -929,51 +976,26 @@ function createPlayerAvatar() {
     const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.y = 1.5;
-    group.add(body);
     
     const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
     const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
     const head = new THREE.Mesh(headGeometry, headMaterial);
     head.position.y = 2.8;
-    group.add(head);
     
-    // Add arms
-    const armGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1, 6);
-    const armMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
-    
-    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.7, 1.5, 0);
-    leftArm.rotation.z = Math.PI / 6;
-    group.add(leftArm);
-    
-    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.7, 1.5, 0);
-    rightArm.rotation.z = -Math.PI / 6;
-    group.add(rightArm);
-    
-    // Add legs
-    const legGeometry = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 6);
-    const legMaterial = new THREE.MeshLambertMaterial({ color: 0xBE185D });
-    
-    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
-    leftLeg.position.set(-0.3, 0.5, 0);
-    group.add(leftLeg);
-    
-    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-    rightLeg.position.set(0.3, 0.5, 0);
-    group.add(rightLeg);
-    
-    // Add a skirt
-    const skirtGeometry = new THREE.ConeGeometry(0.7, 0.5, 8);
-    const skirtMaterial = new THREE.MeshLambertMaterial({ color: 0xF472B6 });
-    const skirt = new THREE.Mesh(skirtGeometry, skirtMaterial);
-    skirt.position.y = 0.9;
-    skirt.rotation.x = Math.PI;
-    group.add(skirt);
+    avatar = new THREE.Group();
+    avatar.add(body);
+    avatar.add(head);
   }
   
-  // Position the avatar at the starting point
-  group.position.set(0, 5, 0);
+  // Position avatar on top of the hover board
+  if (avatar) {
+    avatar.position.y = 0.3; // On top of the board
+    avatar.castShadow = true;
+    group.add(avatar);
+  }
+  
+  // Position the entire group at the starting point
+  group.position.set(0, hoverHeight, 0);
   group.castShadow = true;
   scene.add(group);
   
@@ -1018,15 +1040,12 @@ function initMiniMap() {
   
   window.updateMiniMap = function() {
     // Update player position
-    playerIndicator.position.x = camera.position.x;
-    playerIndicator.position.z = camera.position.z;
+    playerIndicator.position.x = playerAvatar.position.x;
+    playerIndicator.position.z = playerAvatar.position.z;
     
-    // Update player avatar position
+    // Update player avatar rotation based on camera angle
     if (playerAvatar) {
-      playerAvatar.position.x = camera.position.x;
-      playerAvatar.position.z = camera.position.z;
-      // Make avatar face the direction the camera is looking
-      playerAvatar.rotation.y = camera.rotation.y;
+      playerAvatar.rotation.y = cameraAngle + Math.PI;
     }
     
     // Update location info
@@ -1055,25 +1074,21 @@ function initMiniMap() {
 
 function updateLocationInfo() {
   const locationInfo = document.getElementById('location-info');
-  const x = camera.position.x;
-  const z = camera.position.z;
-  const y = camera.position.y;
+  const x = playerAvatar.position.x;
+  const z = playerAvatar.position.z;
+  const y = playerAvatar.position.y;
   
   // Check if player is in the city
   if (x > -200 && x < 200 && z > -200 && z < 200) {
-    if (playerOnRoof) {
-      locationInfo.textContent = "Location: City Center (On Roof)";
-    } else {
-      locationInfo.textContent = "Location: City Center";
-    }
+    locationInfo.textContent = "Location: City Center (Floating)";
   }
   // Check if player is on the moon
   else if (y > 600) {
-    locationInfo.textContent = "Location: Moon Surface";
+    locationInfo.textContent = "Location: Moon Surface (Floating)";
   }
   // Otherwise in the grass fields
   else {
-    locationInfo.textContent = "Location: Grass Fields";
+    locationInfo.textContent = "Location: Grass Fields (Floating)";
   }
 }
 
@@ -1083,15 +1098,15 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// IMPROVED COLLISION DETECTION
+// COLLISION DETECTION FOR FLOATING BOARD
 function checkCollisions(newPosition) {
-  // Update player collider position and size
+  // Update player collider position and size for floating board
   playerCollider.setFromCenterAndSize(
-    new THREE.Vector3(newPosition.x, newPosition.y + playerSize.y/2, newPosition.z),
+    new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
     playerSize
   );
   
-  // Check for collisions with all collision objects (buildings AND roofs)
+  // Check for collisions with all collision objects
   for (let i = 0; i < collisionObjects.length; i++) {
     if (playerCollider.intersectsBox(collisionObjects[i])) {
       return true; // Collision detected
@@ -1101,225 +1116,100 @@ function checkCollisions(newPosition) {
   return false; // No collision
 }
 
-// IMPROVED: Check if player is on a roof
-function checkRoofCollision(newPosition) {
-  playerOnRoof = false;
-  currentRoof = null;
-  
-  // Check if player is on top of any roof
-  for (let i = 0; i < roofObjects.length; i++) {
-    const roof = roofObjects[i];
-    const roofBox = roof.box;
-    
-    // Check if player is above the roof and within its bounds
-    if (newPosition.x >= roofBox.min.x && newPosition.x <= roofBox.max.x &&
-        newPosition.z >= roofBox.min.z && newPosition.z <= roofBox.max.z &&
-        Math.abs(newPosition.y - roofBox.max.y) < 5) { // Within 5 units of roof top
-      
-      playerOnRoof = true;
-      currentRoof = roof;
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-// IMPROVED: Snap player to roof when landing
-function snapToRoof(newPosition) {
-  if (currentRoof) {
-    newPosition.y = currentRoof.box.max.y;
-    velocity.y = 0;
-    canJump = true;
-    return true;
-  }
-  return false;
-}
-
 function animate() {
   requestAnimationFrame(animate);
   
   const time = performance.now();
   const delta = (time - prevTime) / 1000;
+  hoverTime += delta;
   
   // Handle movement
-  if (controls && controls.isLocked) {
+  if ((controls && controls.isLocked) || isMobile) {
     const moveSpeed = 200.0 * delta;
     
     // Store current position for collision detection
-    const currentPosition = camera.position.clone();
+    const currentPosition = playerAvatar.position.clone();
     
     // Calculate new position based on movement
     const newPosition = currentPosition.clone();
     
+    // Calculate movement direction based on camera angle
+    const forward = new THREE.Vector3(
+      Math.sin(cameraAngle),
+      0,
+      Math.cos(cameraAngle)
+    );
+    const right = new THREE.Vector3(
+      Math.sin(cameraAngle + Math.PI/2),
+      0,
+      Math.cos(cameraAngle + Math.PI/2)
+    );
+    
     if (moveForward) {
-      newPosition.z -= moveSpeed;
+      newPosition.add(forward.clone().multiplyScalar(moveSpeed));
     }
     if (moveBackward) {
-      newPosition.z += moveSpeed;
+      newPosition.sub(forward.clone().multiplyScalar(moveSpeed));
     }
     if (moveLeft) {
-      newPosition.x -= moveSpeed;
+      newPosition.sub(right.clone().multiplyScalar(moveSpeed));
     }
     if (moveRight) {
-      newPosition.x += moveSpeed;
+      newPosition.add(right.clone().multiplyScalar(moveSpeed));
     }
     
-    // Apply gravity
-    velocity.y -= 9.8 * 100.0 * delta;
-    newPosition.y += (velocity.y * delta);
+    // Apply floating physics - gentle vertical movement
+    const hoverBob = Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+    newPosition.y = hoverHeight + hoverBob;
     
-    // Check if player is on a roof
-    checkRoofCollision(newPosition);
-    
-    // If player is on a roof, snap to roof height
-    if (playerOnRoof && velocity.y <= 0) {
-      snapToRoof(newPosition);
+    // Apply jump physics if jumping
+    if (velocity.y !== 0) {
+      velocity.y -= 9.8 * 100.0 * delta;
+      newPosition.y += (velocity.y * delta);
+      
+      // Reset jump when back to normal hover height
+      if (newPosition.y <= hoverHeight + hoverBob && velocity.y < 0) {
+        velocity.y = 0;
+        canJump = true;
+      }
     }
     
     // Check for collisions before updating position
     if (!checkCollisions(newPosition)) {
       // No collision, update position
-      camera.position.copy(newPosition);
+      playerAvatar.position.copy(newPosition);
     } else {
       // Collision detected, revert to original position
-      // But allow vertical movement (jumping) if we're above the object
-      const verticalCheck = new THREE.Vector3(currentPosition.x, newPosition.y, currentPosition.z);
-      if (!checkCollisions(verticalCheck)) {
-        // Allow vertical movement (jumping on objects)
-        camera.position.y = newPosition.y;
-      }
-      
-      // Reset horizontal velocity on collision
-      velocity.x = 0;
-      velocity.z = 0;
-    }
-    
-    // Prevent going below ground level
-    if (camera.position.y < 5 && !playerOnRoof) {
-      camera.position.y = 5;
-      velocity.y = 0;
-      canJump = true;
+      playerAvatar.position.copy(currentPosition);
     }
     
     // Prevent going outside world boundaries
-    if (camera.position.x > worldBoundary) {
-      camera.position.x = worldBoundary;
+    if (playerAvatar.position.x > worldBoundary) {
+      playerAvatar.position.x = worldBoundary;
     }
-    if (camera.position.x < -worldBoundary) {
-      camera.position.x = -worldBoundary;
+    if (playerAvatar.position.x < -worldBoundary) {
+      playerAvatar.position.x = -worldBoundary;
     }
-    if (camera.position.z > worldBoundary) {
-      camera.position.z = worldBoundary;
+    if (playerAvatar.position.z > worldBoundary) {
+      playerAvatar.position.z = worldBoundary;
     }
-    if (camera.position.z < -worldBoundary) {
-      camera.position.z = -worldBoundary;
+    if (playerAvatar.position.z < -worldBoundary) {
+      playerAvatar.position.z = -worldBoundary;
     }
   }
   
-  // Handle movement for mobile
-  if (isMobile) {
-    const moveSpeed = 100.0 * delta;
-    
-    // Store current position for collision detection
-    const currentPosition = camera.position.clone();
-    
-    // Calculate new position based on movement
-    const newPosition = currentPosition.clone();
-    
-    if (moveForward) {
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
-      forward.y = 0;
-      forward.normalize();
-      newPosition.add(forward.multiplyScalar(moveSpeed));
-    }
-    if (moveBackward) {
-      const backward = new THREE.Vector3();
-      camera.getWorldDirection(backward);
-      backward.y = 0;
-      backward.normalize();
-      newPosition.sub(backward.multiplyScalar(moveSpeed));
-    }
-    if (moveLeft) {
-      const left = new THREE.Vector3();
-      camera.getWorldDirection(left);
-      left.y = 0;
-      left.normalize();
-      left.cross(camera.up);
-      newPosition.sub(left.multiplyScalar(moveSpeed));
-    }
-    if (moveRight) {
-      const right = new THREE.Vector3();
-      camera.getWorldDirection(right);
-      right.y = 0;
-      right.normalize();
-      right.cross(camera.up);
-      newPosition.add(right.multiplyScalar(moveSpeed));
-    }
-    
-    // Apply gravity for mobile
-    velocity.y -= 9.8 * 100.0 * delta;
-    newPosition.y += (velocity.y * delta);
-    
-    // Check if player is on a roof
-    checkRoofCollision(newPosition);
-    
-    // If player is on a roof, snap to roof height
-    if (playerOnRoof && velocity.y <= 0) {
-      snapToRoof(newPosition);
-    }
-    
-    // Check for collisions before updating position
-    if (!checkCollisions(newPosition)) {
-      // No collision, update position
-      camera.position.copy(newPosition);
-    } else {
-      // Collision detected, revert to original position
-      // But allow vertical movement (jumping) if we're above the object
-      const verticalCheck = new THREE.Vector3(currentPosition.x, newPosition.y, currentPosition.z);
-      if (!checkCollisions(verticalCheck)) {
-        // Allow vertical movement (jumping on objects)
-        camera.position.y = newPosition.y;
-      }
-    }
-    
-    // Prevent going below ground level
-    if (camera.position.y < 5 && !playerOnRoof) {
-      camera.position.y = 5;
-      velocity.y = 0;
-      canJump = true;
-    }
-    
-    // Prevent going outside world boundaries for mobile
-    if (camera.position.x > worldBoundary) {
-      camera.position.x = worldBoundary;
-    }
-    if (camera.position.x < -worldBoundary) {
-      camera.position.x = -worldBoundary;
-    }
-    if (camera.position.z > worldBoundary) {
-      camera.position.z = worldBoundary;
-    }
-    if (camera.position.z < -worldBoundary) {
-      camera.position.z = -worldBoundary;
-    }
-    
-    // Handle look for mobile
-    if (lookX !== 0 || lookY !== 0) {
-      camera.rotation.y -= lookX * 0.01;
-      camera.rotation.x -= lookY * 0.01;
-      camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
-    }
+  // Handle look for mobile
+  if (isMobile && (lookX !== 0 || lookY !== 0)) {
+    targetCameraAngle -= lookX * 0.01;
+    // Limit vertical camera movement for third-person
+    cameraHeight = Math.max(5, Math.min(20, cameraHeight - lookY * 0.1));
   }
+  
+  // Update third-person camera
+  updateThirdPersonCamera();
   
   // Update raycaster for object interaction
-  if (!isMobile && controls && controls.isLocked) {
-    raycaster.setFromCamera(mouse, camera);
-  } else {
-    // For mobile, we'll use a fixed direction (forward)
-    raycaster.set(camera.position, camera.getWorldDirection(new THREE.Vector3()));
-  }
+  raycaster.set(camera.position, camera.getWorldDirection(new THREE.Vector3()));
   
   const intersects = raycaster.intersectObjects(nftObjects);
   
@@ -1503,11 +1393,11 @@ async function loadNFTs() {
   const earthNFTs = data.slice(0, Math.floor(data.length * 0.7)); // 70% on Earth
   const moonNFTs = data.slice(Math.floor(data.length * 0.7)); // 30% on Moon
   
-  // Position Earth NFTs randomly across the terrain, CLOSE to the ground
+  // Position Earth NFTs randomly across the terrain
   earthNFTs.forEach((nft, index) => {
     // Create positions in a circular pattern
     const angle = (index / earthNFTs.length) * Math.PI * 2;
-    const radius = 100 + Math.random() * 300; // Closer to center
+    const radius = 100 + Math.random() * 300;
     
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
@@ -1516,18 +1406,18 @@ async function loadNFTs() {
     const randomOffsetX = (Math.random() - 0.5) * 50;
     const randomOffsetZ = (Math.random() - 0.5) * 50;
     
-    // Get terrain height at this position (simple approximation)
+    // Get terrain height at this position
     let terrainHeight = 5;
     if (Math.sqrt((x + randomOffsetX)**2 + (z + randomOffsetZ)**2) > 200) {
-      terrainHeight = 20 + Math.random() * 50; // Higher in mountains
+      terrainHeight = 20 + Math.random() * 50;
     } else if (x > -200 && x < 200 && z > -200 && z < 200) {
-      terrainHeight = 15 + Math.random() * 30; // In city
+      terrainHeight = 15 + Math.random() * 30;
     }
     
-    // Position NFTs very close to the ground (about 50px above)
+    // Position NFTs at floating height
     createNFTPlane(nft, { 
       x: x + randomOffsetX, 
-      y: terrainHeight + 4, // Only 4 units above terrain
+      y: terrainHeight + 8, // Higher for floating players
       z: z + randomOffsetZ 
     }, false);
   });
@@ -1537,7 +1427,7 @@ async function loadNFTs() {
     // Position NFTs randomly on the moon's surface
     const phi = Math.acos(2 * Math.random() - 1);
     const theta = Math.random() * Math.PI * 2;
-    const radius = 110; // Slightly above the moon's surface
+    const radius = 110;
     
     const x = radius * Math.sin(phi) * Math.cos(theta);
     const y = radius * Math.sin(phi) * Math.sin(theta);
@@ -1605,4 +1495,4 @@ async function transferNFT(tokenId) {
 </script>
 
 </body>
-</html>
+</html>   
