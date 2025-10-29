@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>💎 3D NFT Universe</title>
+
+<!-- Supabase & Web3.js & WalletConnect -->
+<script src="https://unpkg.com/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+
+<!-- Three.js for 3D rendering -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/PointerLockControls.js"></script>
+
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text-dark: #1e293b;
+    --text-light: #475569;
+    --accent: #3b82f6;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  
+  .homepage{
+    border-style: outset;
+    width: 120px;
+    height: 45px;
+    background-image: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg');
+    background-size: 120px 45px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 45px;
+    color: white;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    font-size: 0.8rem;
+  }
+  
+  * { box-sizing: border-box; }
+  body { 
+    font-family: system-ui, sans-serif; 
+    background: var(--bg); 
+    margin: 0; 
+    padding: 0; 
+    color: var(--text-dark); 
+    overflow: hidden;
+    touch-action: none;
+  }
+  
+  header { 
+    background: var(--card-bg); 
+    text-align: center; 
+    padding: 12px 8px; 
+    border-bottom: 1px solid #e2e8f0; 
+    position: absolute; 
+    top: 0; 
+    width: 100%; 
+    z-index: 10; 
+  }
+  
+  h1 { font-size: 1.4rem; margin: 0; }
+  #walletStatus { margin-top: 6px; font-size: 0.8rem; color: var(--text-light); }
+  #connectBtn { 
+    margin-top: 4px; 
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+  
+  #canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  #instructions {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: white;
+    background-color: rgba(0,0,0,0.7);
+    padding: 8px;
+    z-index: 100;
+    font-size: 0.8rem;
+  }
+  
+  #mobile-controls {
+    position: absolute;
+    bottom: 80px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .mobile-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  
+  #look-controls {
+    position: absolute;
+    bottom: 80px;
+    left: 10px;
+    width: 120px;
+    height: 120px;
+    z-index: 100;
+    background: rgba(0,0,0,0.2);
+    border-radius: 50%;
+    touch-action: none;
+  }
+  
+  #nft-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  #nft-modal img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+  
+  #nft-modal h3 {
+    margin: 8px 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  #nft-modal p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    color: var(--text-light);
+  }
+  
+  .nft-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  
+  button {
+    border: none;
+    background: var(--accent);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  button:hover {
+    background: #2563eb;
+  }
+  
+  #close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ef4444;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #close-modal:hover {
+    background: #dc2626;
+  }
+  
+  #mini-map {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    width: 120px;
+    height: 120px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 8px;
+    z-index: 100;
+    border: 2px solid white;
+  }
+  
+  #location-info {
+    position: absolute;
+    top: 70px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    z-index: 100;
+    max-width: 200px;
+  }
+  
+  #avatar-selection {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  
+  #avatar-selection h2 {
+    color: white;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+  }
+  
+  .avatar-options {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .avatar-option {
+    width: 200px;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    border: 3px solid transparent;
+  }
+  
+  .avatar-option:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  }
+  
+  .avatar-option.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent);
+  }
+  
+  #boy-avatar {
+    background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/431BBB65-C6F8-49BC-B882-EA5BBE885462.png');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  #girl-avatar {
+    background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/3974D02C-0D5B-4F49-8597-5185D48FB2A1.png');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  #confirm-avatar {
+    margin-top: 30px;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  #confirm-avatar:hover {
+    background: #2563eb;
+  }
+  
+  @media (max-width: 500px) { 
+    header h1 { font-size: 1.2rem; } 
+    #instructions {
+      font-size: 0.7rem;
+      bottom: 5px;
+    }
+    #mobile-controls {
+      bottom: 60px;
+    }
+    #look-controls {
+      bottom: 60px;
+      width: 100px;
+      height: 100px;
+    }
+    .mobile-btn {
+      width: 45px;
+      height: 45px;
+      font-size: 1rem;
+    }
+    #mini-map {
+      width: 100px;
+      height: 100px;
+      top: 60px;
+    }
+    .avatar-option {
+      width: 150px;
+      height: 225px;
+    }
+    #avatar-selection h2 {
+      font-size: 1.4rem;
+    }
+    #location-info {
+      top: 60px;
+      font-size: 0.7rem;
+      max-width: 150px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NFT Universe Explorer</h1>
+  <div id="walletStatus">Not connected</div>
+  <button id="connectBtn">Connect Wallet</button>
+</header>
+
+<a href='https://diamondrolls.github.io/thepremiumway/'> 
+  <div class="homepage">Home</div>
+</a>
+
+<div id="canvas-container"></div>
+
+<div id="instructions">
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to jump. Find NFTs in the central column from ground to sky!</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Find NFTs in the central column from ground to sky!</div>
+</div>
+
+<div id="location-info">
+  Location: Starting Area
+</div>
+
+<div id="mobile-controls">
+  <div class="mobile-btn" id="forward-btn">↑</div>
+  <div style="display:flex; gap:10px;">
+    <div class="mobile-btn" id="left-btn">←</div>
+    <div class="mobile-btn" id="backward-btn">↓</div>
+    <div class="mobile-btn" id="right-btn">→</div>
+  </div>
+  <div class="mobile-btn" id="jump-btn" style="background: rgba(34, 197, 94, 0.7);">⤴</div>
+</div>
+
+<div id="look-controls"></div>
+
+<div id="mini-map"></div>
+
+<div id="nft-modal">
+  <button id="close-modal">X</button>
+  <img id="modal-image" src="" alt="NFT" />
+  <div class="nft-info">
+    <h3 id="modal-title"></h3>
+    <p id="modal-description"></p>
+    <p><strong>Price:</strong> <span id="modal-price"></span> ETH</p>
+    <div class="nft-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<div id="avatar-selection">
+  <h2>Choose Your Explorer</h2>
+  <div class="avatar-options">
+    <div class="avatar-option" id="boy-avatar" data-avatar="boy"></div>
+    <div class="avatar-option" id="girl-avatar" data-avatar="girl"></div>
+  </div>
+  <button id="confirm-avatar">Start Exploring</button>
+</div>
+
+<script>
+/* ==============================
+   CONFIGURATION
+============================== */
+const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
+const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
+const NFT_ABI = [
+  { "constant":true,"inputs":[{"name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"name":"","type":"address"}],"type":"function" },
+  { "constant":false,"inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"type":"function" }
+];
+const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
+
+let web3, account, nftContract;
+
+/* ==============================
+   AVATAR SELECTION
+============================== */
+let selectedAvatar = null;
+const avatarOptions = document.querySelectorAll('.avatar-option');
+const confirmButton = document.getElementById('confirm-avatar');
+const avatarSelection = document.getElementById('avatar-selection');
+
+avatarOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    // Remove selected class from all options
+    avatarOptions.forEach(opt => opt.classList.remove('selected'));
+    // Add selected class to clicked option
+    option.classList.add('selected');
+    selectedAvatar = option.getAttribute('data-avatar');
+  });
+});
+
+confirmButton.addEventListener('click', () => {
+  if (selectedAvatar) {
+    avatarSelection.style.display = 'none';
+    init3DScene();
+    loadNFTs();
+  } else {
+    alert('Please select an avatar to continue');
+  }
+});
+
+/* ==============================
+   MOBILE DETECTION & CONTROLS
+============================== */
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let lookTouchId = null;
+let lookStartX = 0, lookStartY = 0;
+let lookX = 0, lookY = 0;
+let velocity = new THREE.Vector3();
+let canJump = true;
+
+if (isMobile) {
+  document.getElementById('desktop-instructions').style.display = 'none';
+  document.getElementById('mobile-instructions').style.display = 'block';
+  
+  // Set up mobile movement controls
+  document.getElementById('forward-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveForward = true;
+  });
+  document.getElementById('forward-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveForward = false;
+  });
+  
+  document.getElementById('backward-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveBackward = true;
+  });
+  document.getElementById('backward-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveBackward = false;
+  });
+  
+  document.getElementById('left-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveLeft = true;
+  });
+  document.getElementById('left-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveLeft = false;
+  });
+  
+  document.getElementById('right-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    moveRight = true;
+  });
+  document.getElementById('right-btn').addEventListener('touchend', (e) => {
+    e.preventDefault();
+    moveRight = false;
+  });
+  
+  document.getElementById('jump-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (canJump) {
+      velocity.y += 350;
+      canJump = false;
+    }
+  });
+  
+  // Set up look controls
+  const lookControls = document.getElementById('look-controls');
+  lookControls.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (lookTouchId === null) {
+      const touch = e.touches[0];
+      lookTouchId = touch.identifier;
+      lookStartX = touch.clientX;
+      lookStartY = touch.clientY;
+    }
+  });
+  
+  lookControls.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === lookTouchId) {
+        const deltaX = touch.clientX - lookStartX;
+        const deltaY = touch.clientY - lookStartY;
+        
+        lookX = deltaX * 0.5;
+        lookY = deltaY * 0.5;
+        
+        lookStartX = touch.clientX;
+        lookStartY = touch.clientY;
+        break;
+      }
+    }
+  });
+  
+  lookControls.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      if (touch.identifier === lookTouchId) {
+        lookTouchId = null;
+        lookX = 0;
+        lookY = 0;
+        break;
+      }
+    }
+  });
+}
+
+/* ==============================
+   3D SCENE SETUP - THIRD PERSON
+============================== */
+let scene, camera, renderer, controls;
+let nftObjects = [], environmentObjects = [], buildingObjects = [];
+let raycaster, mouse;
+let currentIntersected = null;
+let miniMapScene, miniMapCamera, miniMapRenderer;
+let playerAvatar;
+let worldSize = 800;
+let worldBoundary = worldSize / 2 - 50;
+let clock = new THREE.Clock();
+let prevTime = 0;
+
+// Third-person camera variables
+let cameraDistance = 25;
+let cameraHeight = 10;
+let cameraAngle = 0;
+let targetCameraAngle = 0;
+
+// Floating board variables
+let hoverBoard;
+let hoverHeight = 3; // Height above ground
+let hoverBobSpeed = 2; // Bobbing speed
+let hoverBobAmount = 0.3; // Bobbing amount
+let hoverTime = 0;
+
+// Collision detection variables
+let collisionObjects = [];
+let roofObjects = [];
+let playerCollider = new THREE.Box3();
+let playerSize = new THREE.Vector3(8, 1, 8); // Same size as NFT displays
+let playerOnRoof = false;
+let currentRoof = null;
+
+// Swimming pool variables
+let poolGroup;
+let underwaterCaveGroup;
+let isInWater = false;
+let isInUnderwaterCave = false;
+
+// Bridge variables
+let bridgeSegments = [];
+let nftPlatforms = [];
+
+function init3DScene() {
+  // Create scene
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000033);
+  scene.fog = new THREE.Fog(0x000033, 100, 2000);
+  
+  // Create camera - Third person perspective
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+  
+  // Create renderer
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+  
+  // Add lighting
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
+  
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(100, 200, 100);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.width = 2048;
+  directionalLight.shadow.mapSize.height = 2048;
+  directionalLight.shadow.camera.near = 0.5;
+  directionalLight.shadow.camera.far = 2000;
+  directionalLight.shadow.camera.left = -500;
+  directionalLight.shadow.camera.right = 500;
+  directionalLight.shadow.camera.top = 500;
+  directionalLight.shadow.camera.bottom = -500;
+  scene.add(directionalLight);
+  
+  // Create the world
+  createWorld();
+  
+  // Create player avatar with floating board
+  createPlayerAvatar();
+  
+  // Set initial camera position for third-person view
+  updateThirdPersonCamera();
+  
+  // Set up controls
+  if (!isMobile) {
+    controls = new THREE.PointerLockControls(camera, document.body);
+    
+    document.addEventListener('click', function() {
+      if (!controls.isLocked) {
+        controls.lock();
+      }
+    });
+    
+    controls.addEventListener('lock', function() {
+      document.getElementById('instructions').style.display = 'none';
+    });
+    
+    controls.addEventListener('unlock', function() {
+      document.getElementById('instructions').style.display = 'block';
+    });
+    
+    // Keyboard controls for desktop
+    const onKeyDown = function (event) {
+      switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+          moveForward = true;
+          break;
+        case 'ArrowLeft':
+        case 'KeyA':
+          moveLeft = true;
+          break;
+        case 'ArrowDown':
+        case 'KeyS':
+          moveBackward = true;
+          break;
+        case 'ArrowRight':
+        case 'KeyD':
+          moveRight = true;
+          break;
+        case 'Space':
+          if (canJump) {
+            velocity.y += 350;
+            canJump = false;
+          }
+          break;
+      }
+    };
+    
+    const onKeyUp = function (event) {
+      switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+          moveForward = false;
+          break;
+        case 'ArrowLeft':
+        case 'KeyA':
+          moveLeft = false;
+          break;
+        case 'ArrowDown':
+        case 'KeyS':
+          moveBackward = false;
+          break;
+        case 'ArrowRight':
+        case 'KeyD':
+          moveRight = false;
+          break;
+      }
+    };
+    
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+    
+    // Mouse movement for third-person camera
+    document.addEventListener('mousemove', (event) => {
+      if (controls && controls.isLocked) {
+        targetCameraAngle -= event.movementX * 0.002;
+      }
+    });
+  }
+  
+  // Set up raycaster for object interaction
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+  
+  // Handle window resize
+  window.addEventListener('resize', onWindowResize);
+  
+  // Initialize mini-map
+  initMiniMap();
+  
+  // Start animation
+  animate();
+}
+
+function updateThirdPersonCamera() {
+  if (!playerAvatar) return;
+  
+  // Smoothly interpolate camera angle
+  cameraAngle += (targetCameraAngle - cameraAngle) * 0.1;
+  
+  // Calculate camera position behind and above the player
+  const playerPosition = playerAvatar.position.clone();
+  const offset = new THREE.Vector3(
+    Math.sin(cameraAngle) * cameraDistance,
+    cameraHeight,
+    Math.cos(cameraAngle) * cameraDistance
+  );
+  
+  camera.position.copy(playerPosition).add(offset);
+  
+  // Look at a point slightly above the player's position
+  const lookAtPosition = playerPosition.clone();
+  lookAtPosition.y += 3; // Look at center of avatar
+  camera.lookAt(lookAtPosition);
+}
+
+function createWorld() {
+  // Create massive ground plane
+  const groundGeometry = new THREE.PlaneGeometry(worldSize, worldSize, 100, 100);
+  const groundMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x4ADE80,
+    side: THREE.DoubleSide
+  });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  
+  // Create city with buildings
+  createCity();
+  
+  // Create spiral bridge to the sky pool
+  createMoonBridge();
+  
+  // Create swimming pool at the top of the bridge
+  createSkyPool();
+  
+  // Add boundary walls to prevent going off map
+  createBoundaryWalls();
+}
+
+function createSkyPool() {
+  poolGroup = new THREE.Group();
+  
+  // Pool dimensions
+  const poolWidth = 80;
+  const poolLength = 80;
+  const poolDepth = 15;
+  
+  // Create pool basin - FIXED: Remove collision from pool basin
+  const poolBasinGeometry = new THREE.BoxGeometry(poolWidth, poolDepth, poolLength);
+  const poolBasinMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1E40AF,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const poolBasin = new THREE.Mesh(poolBasinGeometry, poolBasinMaterial);
+  poolBasin.position.set(0, -poolDepth/2, 0);
+  poolBasin.receiveShadow = true;
+  // NO COLLISION - players can enter freely
+  poolGroup.add(poolBasin);
+  
+  // Create pool walls - these should have collision
+  const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x374151 });
+  
+  // North wall
+  const northWall = new THREE.Mesh(new THREE.BoxGeometry(poolWidth, poolDepth, 2), wallMaterial);
+  northWall.position.set(0, -poolDepth/2, -poolLength/2);
+  poolGroup.add(northWall);
+  
+  // South wall
+  const southWall = new THREE.Mesh(new THREE.BoxGeometry(poolWidth, poolDepth, 2), wallMaterial);
+  southWall.position.set(0, -poolDepth/2, poolLength/2);
+  poolGroup.add(southWall);
+  
+  // East wall
+  const eastWall = new THREE.Mesh(new THREE.BoxGeometry(2, poolDepth, poolLength), wallMaterial);
+  eastWall.position.set(poolWidth/2, -poolDepth/2, 0);
+  poolGroup.add(eastWall);
+  
+  // West wall
+  const westWall = new THREE.Mesh(new THREE.BoxGeometry(2, poolDepth, poolLength), wallMaterial);
+  westWall.position.set(-poolWidth/2, -poolDepth/2, 0);
+  poolGroup.add(westWall);
+  
+  // Create pool ramps for easy entry/exit
+  createPoolRamps(poolWidth, poolLength, poolDepth);
+  
+  // Create overground cave at the edge of the sky pool
+  createOvergroundCave(poolWidth, poolLength, poolDepth);
+  
+  // Position pool at the top of the bridge (around y=750)
+  poolGroup.position.set(0, 750, 0);
+  scene.add(poolGroup);
+  
+  // Add ONLY WALLS to collision objects (not the basin)
+  const northWallBox = new THREE.Box3().setFromObject(northWall);
+  const southWallBox = new THREE.Box3().setFromObject(southWall);
+  const eastWallBox = new THREE.Box3().setFromObject(eastWall);
+  const westWallBox = new THREE.Box3().setFromObject(westWall);
+  
+  collisionObjects.push(northWallBox);
+  collisionObjects.push(southWallBox);
+  collisionObjects.push(eastWallBox);
+  collisionObjects.push(westWallBox);
+}
+
+function createPoolRamps(poolWidth, poolLength, poolDepth) {
+  // Create entry ramp (sloping down into pool)
+  const entryRampWidth = 20;
+  const entryRampLength = poolLength / 2;
+  const entryRampHeight = poolDepth / 2;
+  
+  const entryRampGeometry = new THREE.BoxGeometry(entryRampWidth, 1, entryRampLength);
+  const rampMaterial = new THREE.MeshLambertMaterial({ color: 0x6B7280 });
+  
+  const entryRamp = new THREE.Mesh(entryRampGeometry, rampMaterial);
+  entryRamp.position.set(0, -entryRampHeight/2, -poolLength/4);
+  entryRamp.rotation.x = -Math.atan2(entryRampHeight, entryRampLength);
+  entryRamp.castShadow = true;
+  entryRamp.receiveShadow = true;
+  poolGroup.add(entryRamp);
+  
+  // Create exit ramp (sloping up from bottom of pool)
+  const exitRampWidth = 20;
+  const exitRampLength = poolLength / 2;
+  const exitRampGeometry = new THREE.BoxGeometry(exitRampWidth, 1, exitRampLength);
+  const exitRamp = new THREE.Mesh(exitRampGeometry, rampMaterial);
+  exitRamp.position.set(0, -poolDepth + 0.5, poolLength/4);
+  exitRamp.rotation.x = Math.atan2(poolDepth/2, exitRampLength);
+  exitRamp.castShadow = true;
+  exitRamp.receiveShadow = true;
+  poolGroup.add(exitRamp);
+  
+  // Add ramps to collision objects
+  const entryRampBox = new THREE.Box3().setFromObject(entryRamp);
+  const exitRampBox = new THREE.Box3().setFromObject(exitRamp);
+  collisionObjects.push(entryRampBox);
+  collisionObjects.push(exitRampBox);
+}
+
+function createOvergroundCave(poolWidth, poolLength, poolDepth) {
+  underwaterCaveGroup = new THREE.Group();
+  
+  // Create cave entrance at the edge of the sky pool
+  const caveEntranceGeometry = new THREE.CylinderGeometry(15, 15, 5, 16);
+  const caveEntranceMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1F2937,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const caveEntrance = new THREE.Mesh(caveEntranceGeometry, caveEntranceMaterial);
+  caveEntrance.position.set(poolWidth/2 + 20, 0, 0);
+  caveEntrance.rotation.x = Math.PI / 2;
+  underwaterCaveGroup.add(caveEntrance);
+  
+  // Create the overground cave (floating in sky)
+  const caveGeometry = new THREE.SphereGeometry(60, 32, 32);
+  const caveMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1E40AF,
+    transparent: true,
+    opacity: 0.3,
+    wireframe: false
+  });
+  
+  const cave = new THREE.Mesh(caveGeometry, caveMaterial);
+  cave.position.set(poolWidth/2 + 100, 0, 0);
+  underwaterCaveGroup.add(cave);
+  
+  // Add glowing crystals
+  for (let i = 0; i < 20; i++) {
+    const crystalGeometry = new THREE.ConeGeometry(2, 8, 4);
+    const crystalMaterial = new THREE.MeshLambertMaterial({ 
+      color: 0x60A5FA,
+      emissive: 0x1D4ED8,
+      emissiveIntensity: 0.5
+    });
+    
+    const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
+    
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = Math.random() * Math.PI * 2;
+    const radius = 58;
+    
+    crystal.position.set(
+      poolWidth/2 + 100 + radius * Math.sin(phi) * Math.cos(theta),
+      radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi)
+    );
+    
+    crystal.lookAt(poolWidth/2 + 100, 0, 0);
+    underwaterCaveGroup.add(crystal);
+  }
+  
+  underwaterCaveGroup.position.set(0, 750, 0);
+  scene.add(underwaterCaveGroup);
+  
+  // Add cave to collision objects
+  const caveBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(poolWidth/2 + 100, 750, 0),
+    new THREE.Vector3(120, 120, 120)
+  );
+  collisionObjects.push(caveBox);
+}
+
+function createMoonBridge() {
+  const bridgeGroup = new THREE.Group();
+  
+  // Cyan bridge material
+  const bridgeMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x00FFFF,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const bridgeWidth = 20;
+  const bridgeHeight = 5;
+  const segments = 200;
+  
+  // Clear previous bridge segments
+  bridgeSegments = [];
+  
+  // Create spiral bridge starting from edge with 30-degree incline
+  for (let i = 0; i < segments; i++) {
+    const t = i / segments;
+    const nextT = (i + 1) / segments;
+    
+    // Spiral parametric equations starting from edge
+    const spiralTurns = 4; // More turns for gradual 30-degree incline
+    const startRadius = 350; // Start at edge of map
+    const endRadius = 50; // End with smaller radius
+    const totalHeight = 750;
+    
+    // Calculate radius - start large and get smaller
+    const radius = startRadius - (t * (startRadius - endRadius));
+    
+    // Spiral coordinates
+    const angle = t * Math.PI * 2 * spiralTurns;
+    
+    // Bridge starts at ground level (y=0) and goes up to pool level
+    const x1 = Math.cos(angle) * radius;
+    const z1 = Math.sin(angle) * radius;
+    const y1 = 0 + t * totalHeight;
+    
+    const nextAngle = nextT * Math.PI * 2 * spiralTurns;
+    const nextRadius = startRadius - (nextT * (startRadius - endRadius));
+    
+    const x2 = Math.cos(nextAngle) * nextRadius;
+    const z2 = Math.sin(nextAngle) * nextRadius;
+    const y2 = 0 + nextT * totalHeight;
+    
+    // Calculate segment length and direction
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dz = z2 - z1;
+    const segmentLength = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    
+    // Create bridge segment
+    const segmentGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, segmentLength);
+    const segment = new THREE.Mesh(segmentGeometry, bridgeMaterial);
+    
+    // Position segment at midpoint
+    segment.position.set(
+      (x1 + x2) / 2,
+      (y1 + y2) / 2,
+      (z1 + z2) / 2
+    );
+    
+    // Rotate segment to follow the spiral
+    segment.rotation.y = Math.atan2(dx, dz);
+    segment.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+    
+    segment.castShadow = true;
+    segment.receiveShadow = true;
+    bridgeGroup.add(segment);
+    
+    // Store segment for collision detection
+    bridgeSegments.push(segment);
+    
+    // Create guardrails
+    createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength);
+  }
+  
+  scene.add(bridgeGroup);
+}
+
+function createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength) {
+  const railGeometry = new THREE.BoxGeometry(1, 10, segmentLength);
+  const railMaterial = new THREE.MeshLambertMaterial({ color: 0x4B5563 });
+  
+  // Calculate direction vector
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dz = z2 - z1;
+  
+  // Calculate perpendicular vector for rail offset
+  const length = Math.sqrt(dx*dx + dz*dz);
+  const perpX = -dz / length * 10.5;
+  const perpZ = dx / length * 10.5;
+  
+  // Left rail
+  const leftRail = new THREE.Mesh(railGeometry, railMaterial);
+  leftRail.position.set(
+    (x1 + x2) / 2 + perpX,
+    (y1 + y2) / 2 + 5,
+    (z1 + z2) / 2 + perpZ
+  );
+  leftRail.rotation.y = Math.atan2(dx, dz);
+  leftRail.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+  leftRail.castShadow = true;
+  bridgeGroup.add(leftRail);
+  
+  // Right rail
+  const rightRail = new THREE.Mesh(railGeometry, railMaterial);
+  rightRail.position.set(
+    (x1 + x2) / 2 - perpX,
+    (y1 + y2) / 2 + 5,
+    (z1 + z2) / 2 - perpZ
+  );
+  rightRail.rotation.y = Math.atan2(dx, dz);
+  rightRail.rotation.x = -Math.atan2(dy, Math.sqrt(dx*dx + dz*dz));
+  rightRail.castShadow = true;
+  bridgeGroup.add(rightRail);
+  
+  // Add rails to collision objects
+  const leftRailBox = new THREE.Box3().setFromObject(leftRail);
+  const rightRailBox = new THREE.Box3().setFromObject(rightRail);
+  collisionObjects.push(leftRailBox);
+  collisionObjects.push(rightRailBox);
+}
+
+function createBoundaryWalls() {
+  const wallHeight = 100;
+  const wallMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x374151,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const wallGeometry = new THREE.PlaneGeometry(worldSize, wallHeight);
+  
+  // North wall
+  const northWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  northWall.position.set(0, wallHeight/2, -worldBoundary);
+  northWall.rotation.x = Math.PI / 2;
+  scene.add(northWall);
+  
+  // South wall
+  const southWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  southWall.position.set(0, wallHeight/2, worldBoundary);
+  southWall.rotation.x = -Math.PI / 2;
+  scene.add(southWall);
+  
+  // East wall
+  const eastWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  eastWall.position.set(worldBoundary, wallHeight/2, 0);
+  eastWall.rotation.x = Math.PI / 2;
+  eastWall.rotation.y = Math.PI / 2;
+  scene.add(eastWall);
+  
+  // West wall
+  const westWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  westWall.position.set(-worldBoundary, wallHeight/2, 0);
+  westWall.rotation.x = Math.PI / 2;
+  westWall.rotation.y = -Math.PI / 2;
+  scene.add(westWall);
+}
+
+function createCity() {
+  const cityGroup = new THREE.Group();
+  const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
+  
+  const gridSize = 5;
+  const spacing = 120;
+  
+  for (let x = 0; x < gridSize; x++) {
+    for (let z = 0; z < gridSize; z++) {
+      const width = 40 + Math.random() * 30;
+      const depth = 40 + Math.random() * 30;
+      const height = 20 + Math.random() * 40;
+      
+      const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+      const buildingMaterial = new THREE.MeshLambertMaterial({ 
+        color: buildingColors[Math.floor(Math.random() * buildingColors.length)] 
+      });
+      
+      const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+      
+      building.position.set(
+        (x - gridSize/2) * spacing,
+        height / 2,
+        (z - gridSize/2) * spacing - 100
+      );
+      
+      building.castShadow = true;
+      building.receiveShadow = true;
+      cityGroup.add(building);
+      buildingObjects.push(building);
+      
+      const buildingBox = new THREE.Box3().setFromObject(building);
+      collisionObjects.push(buildingBox);
+      
+      createBuildingRoof(building.position.x, building.position.y + height/2, building.position.z, width, depth);
+    }
+  }
+  
+  scene.add(cityGroup);
+}
+
+function createBuildingRoof(x, y, z, width, depth) {
+  const roofGeometry = new THREE.PlaneGeometry(width, depth);
+  const roofMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x1F2937,
+    side: THREE.DoubleSide
+  });
+  
+  const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+  roof.position.set(x, y + 0.1, z);
+  roof.rotation.x = Math.PI / 2;
+  roof.receiveShadow = true;
+  roof.castShadow = true;
+  scene.add(roof);
+  
+  const roofBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.1, z),
+    new THREE.Vector3(width, 0.2, depth)
+  );
+  roofObjects.push({
+    box: roofBox,
+    position: new THREE.Vector3(x, y + 0.1, z),
+    width: width,
+    depth: depth
+  });
+  collisionObjects.push(roofBox);
+}
+
+function createPlayerAvatar() {
+  const group = new THREE.Group();
+  
+  const boardWidth = 8;
+  const boardHeight = 0.3;
+  const boardDepth = 8;
+  
+  const boardGeometry = new THREE.BoxGeometry(boardWidth, boardHeight, boardDepth);
+  const boardMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xC0C0C0,
+    metalness: 0.9,
+    roughness: 0.1,
+    emissive: 0x222222
+  });
+  hoverBoard = new THREE.Mesh(boardGeometry, boardMaterial);
+  hoverBoard.castShadow = true;
+  hoverBoard.receiveShadow = true;
+  group.add(hoverBoard);
+  
+  const underglowGeometry = new THREE.BoxGeometry(boardWidth + 0.5, 0.1, boardDepth + 0.5);
+  const underglowMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00FF00,
+    transparent: true,
+    opacity: 0.8
+  });
+  const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
+  underglow.position.y = -boardHeight/2 - 0.05;
+  group.add(underglow);
+  
+  const frameGeometry = new THREE.BoxGeometry(boardWidth + 0.1, 0.05, boardDepth + 0.1);
+  const frameMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x888888,
+    metalness: 1.0,
+    roughness: 0.1
+  });
+  const topFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+  topFrame.position.y = boardHeight/2 + 0.025;
+  group.add(topFrame);
+  
+  let avatar;
+  if (selectedAvatar === 'boy') {
+    const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+    const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 1.5;
+    
+    const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+    const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 2.8;
+    
+    avatar = new THREE.Group();
+    avatar.add(body);
+    avatar.add(head);
+    
+  } else if (selectedAvatar === 'girl') {
+    const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+    const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 1.5;
+    
+    const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+    const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 2.8;
+    
+    avatar = new THREE.Group();
+    avatar.add(body);
+    avatar.add(head);
+  }
+  
+  if (avatar) {
+    avatar.position.y = boardHeight/2 + 0.1;
+    avatar.castShadow = true;
+    group.add(avatar);
+  }
+  
+  group.position.set(0, hoverHeight, 0);
+  group.castShadow = true;
+  scene.add(group);
+  
+  playerAvatar = group;
+}
+
+function initMiniMap() {
+  miniMapScene = new THREE.Scene();
+  miniMapCamera = new THREE.OrthographicCamera(-worldSize/2, worldSize/2, worldSize/2, -worldSize/2, 0.1, 2000);
+  miniMapCamera.position.y = 500;
+  miniMapCamera.lookAt(0, 0, 0);
+  
+  const miniMapCanvas = document.createElement('canvas');
+  miniMapCanvas.width = 120;
+  miniMapCanvas.height = 120;
+  document.getElementById('mini-map').appendChild(miniMapCanvas);
+  
+  miniMapRenderer = new THREE.WebGLRenderer({ 
+    canvas: miniMapCanvas,
+    antialias: false 
+  });
+  miniMapRenderer.setSize(120, 120);
+  miniMapRenderer.setClearColor(0x000000, 0.5);
+  
+  const groundGeometry = new THREE.PlaneGeometry(worldSize, worldSize);
+  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x4ADE80 });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  miniMapScene.add(ground);
+  
+  const poolGeometry = new THREE.PlaneGeometry(80, 80);
+  const poolMaterial = new THREE.MeshBasicMaterial({ color: 0x1E40AF });
+  const poolIndicator = new THREE.Mesh(poolGeometry, poolMaterial);
+  poolIndicator.position.set(0, 0, 0);
+  poolIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(poolIndicator);
+  
+  const bridgeIndicatorGeometry = new THREE.RingGeometry(50, 350, 36);
+  const bridgeIndicatorMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00FFFF,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.3
+  });
+  const bridgeIndicator = new THREE.Mesh(bridgeIndicatorGeometry, bridgeIndicatorMaterial);
+  bridgeIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(bridgeIndicator);
+  
+  const playerGeometry = new THREE.CircleGeometry(10, 8);
+  const playerMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+  const playerIndicator = new THREE.Mesh(playerGeometry, playerMaterial);
+  playerIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(playerIndicator);
+  
+  const nftIndicatorGeometry = new THREE.CircleGeometry(8, 6);
+  const nftIndicatorMaterial = new THREE.MeshBasicMaterial({ color: 0x3B82F6 });
+  
+  window.updateMiniMap = function() {
+    playerIndicator.position.x = playerAvatar.position.x;
+    playerIndicator.position.z = playerAvatar.position.z;
+    
+    if (playerAvatar) {
+      playerAvatar.rotation.y = cameraAngle + Math.PI;
+    }
+    
+    updateLocationInfo();
+    
+    miniMapScene.children.forEach((child, index) => {
+      if (child.userData && child.userData.isNFTIndicator) {
+        miniMapScene.children.splice(index, 1);
+      }
+    });
+    
+    nftObjects.forEach(nft => {
+      const indicator = new THREE.Mesh(nftIndicatorGeometry, nftIndicatorMaterial);
+      indicator.position.x = nft.position.x;
+      indicator.position.z = nft.position.z;
+      indicator.rotation.x = -Math.PI / 2;
+      indicator.userData = { isNFTIndicator: true };
+      miniMapScene.add(indicator);
+    });
+    
+    miniMapRenderer.render(miniMapScene, miniMapCamera);
+  };
+}
+
+function updateLocationInfo() {
+  const locationInfo = document.getElementById('location-info');
+  const x = playerAvatar.position.x;
+  const z = playerAvatar.position.z;
+  const y = playerAvatar.position.y;
+  
+  if (isInUnderwaterCave) {
+    locationInfo.textContent = "Location: Overground Cave (Zero Gravity)";
+  }
+  else if (isInWater) {
+    locationInfo.textContent = "Location: Sky Pool (Zero Gravity)";
+  }
+  else if (y > 700) {
+    locationInfo.textContent = "Location: Sky Platform (Floating)";
+  }
+  else if (y > 50) {
+    locationInfo.textContent = "Location: Spiral Bridge (Floating)";
+  }
+  else if (playerOnRoof) {
+    locationInfo.textContent = "Location: Building Roof (Floating)";
+  }
+  else if (x > -200 && x < 200 && z > -200 && z < 200) {
+    locationInfo.textContent = "Location: City Center (Floating)";
+  }
+  else {
+    locationInfo.textContent = "Location: Grass Fields (Floating)";
+  }
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function checkCollisions(newPosition) {
+  playerCollider.setFromCenterAndSize(
+    new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
+    playerSize
+  );
+  
+  // Check if player is on bridge and allow movement
+  const isOnBridge = checkIfOnBridge(newPosition);
+  
+  if (isOnBridge) {
+    return false; // No collision when on bridge
+  }
+  
+  for (let i = 0; i < collisionObjects.length; i++) {
+    if (playerCollider.intersectsBox(collisionObjects[i])) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+function checkIfOnBridge(position) {
+  // Check if player is close to any bridge segment
+  for (let i = 0; i < bridgeSegments.length; i++) {
+    const segment = bridgeSegments[i];
+    const distance = position.distanceTo(segment.position);
+    
+    // If player is within reasonable distance of bridge segment and at similar height
+    if (distance < 30 && Math.abs(position.y - segment.position.y) < 15) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const time = performance.now();
+  const delta = (time - prevTime) / 1000;
+  hoverTime += delta;
+  
+  if ((controls && controls.isLocked) || isMobile) {
+    const moveSpeed = 200.0 * delta;
+    
+    const currentPosition = playerAvatar.position.clone();
+    const newPosition = currentPosition.clone();
+    
+    const forward = new THREE.Vector3(
+      Math.sin(cameraAngle),
+      0,
+      Math.cos(cameraAngle)
+    );
+    const right = new THREE.Vector3(
+      Math.sin(cameraAngle + Math.PI/2),
+      0,
+      Math.cos(cameraAngle + Math.PI/2)
+    );
+    
+    if (moveForward) {
+      newPosition.add(forward.clone().multiplyScalar(moveSpeed));
+    }
+    if (moveBackward) {
+      newPosition.sub(forward.clone().multiplyScalar(moveSpeed));
+    }
+    if (moveLeft) {
+      newPosition.sub(right.clone().multiplyScalar(moveSpeed));
+    }
+    if (moveRight) {
+      newPosition.add(right.clone().multiplyScalar(moveSpeed));
+    }
+    
+    const hoverBob = Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+    
+    // Check if player is on bridge
+    const isOnBridge = checkIfOnBridge(newPosition);
+    
+    if (isOnBridge) {
+      // On bridge - follow bridge height with floating effect
+      let bridgeHeight = 0;
+      for (let i = 0; i < bridgeSegments.length; i++) {
+        const segment = bridgeSegments[i];
+        const distance = newPosition.distanceTo(segment.position);
+        if (distance < 30) {
+          bridgeHeight = segment.position.y;
+          break;
+        }
+      }
+      newPosition.y = bridgeHeight + hoverHeight + hoverBob;
+    } else {
+      // Not on bridge - normal floating
+      newPosition.y = hoverHeight + hoverBob;
+    }
+    
+    if (velocity.y !== 0) {
+      velocity.y -= 9.8 * 100.0 * delta;
+      newPosition.y += (velocity.y * delta);
+      
+      if (newPosition.y <= hoverHeight + hoverBob && velocity.y < 0 && !isOnBridge) {
+        velocity.y = 0;
+        canJump = true;
+      }
+    }
+    
+    // FIXED: Pool detection - now for sky pool
+    const poolBounds = new THREE.Box3(
+      new THREE.Vector3(-40, 750 - 15, -40),
+      new THREE.Vector3(40, 750, 40)
+    );
+    isInWater = poolBounds.containsPoint(playerAvatar.position);
+    
+    const caveBounds = new THREE.Box3(
+      new THREE.Vector3(80, 750 - 60, -60),
+      new THREE.Vector3(200, 750 + 60, 60)
+    );
+    isInUnderwaterCave = caveBounds.containsPoint(playerAvatar.position);
+    
+    // FIXED: Pool gravity removed - now you float in the sky pool!
+    if (isInWater) {
+      // Remove gravity effects in pool
+      velocity.y = 0;
+      // Allow floating movement with slight resistance
+      const waterMoveSpeed = moveSpeed * 0.7;
+      
+      if (moveForward) {
+        newPosition.add(forward.clone().multiplyScalar(waterMoveSpeed));
+      }
+      if (moveBackward) {
+        newPosition.sub(forward.clone().multiplyScalar(waterMoveSpeed));
+      }
+      if (moveLeft) {
+        newPosition.sub(right.clone().multiplyScalar(waterMoveSpeed));
+      }
+      if (moveRight) {
+        newPosition.add(right.clone().multiplyScalar(waterMoveSpeed));
+      }
+      
+      // Allow vertical movement with space/up button
+      if (canJump) {
+        newPosition.y += 50 * delta;
+      }
+    }
+    
+    if (isInUnderwaterCave) {
+      // Zero gravity in overground cave
+      velocity.y *= 0.98;
+      
+      if (moveForward) {
+        newPosition.add(forward.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveBackward) {
+        newPosition.sub(forward.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveLeft) {
+        newPosition.sub(right.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      if (moveRight) {
+        newPosition.add(right.clone().multiplyScalar(moveSpeed * 0.5));
+      }
+      
+      if (canJump && velocity.y === 0) {
+        velocity.y += 200 * delta;
+      }
+    }
+    
+    if (!checkCollisions(newPosition)) {
+      playerAvatar.position.copy(newPosition);
+    } else {
+      playerAvatar.position.copy(currentPosition);
+    }
+    
+    if (playerAvatar.position.x > worldBoundary) {
+      playerAvatar.position.x = worldBoundary;
+    }
+    if (playerAvatar.position.x < -worldBoundary) {
+      playerAvatar.position.x = -worldBoundary;
+    }
+    if (playerAvatar.position.z > worldBoundary) {
+      playerAvatar.position.z = worldBoundary;
+    }
+    if (playerAvatar.position.z < -worldBoundary) {
+      playerAvatar.position.z = -worldBoundary;
+    }
+  }
+  
+  if (isMobile && (lookX !== 0 || lookY !== 0)) {
+    targetCameraAngle -= lookX * 0.01;
+    cameraHeight = Math.max(5, Math.min(20, cameraHeight - lookY * 0.1));
+  }
+  
+  updateThirdPersonCamera();
+  
+  raycaster.set(camera.position, camera.getWorldDirection(new THREE.Vector3()));
+  
+  const intersects = raycaster.intersectObjects(nftObjects);
+  
+  if (intersects.length > 0) {
+    if (currentIntersected !== intersects[0].object) {
+      if (currentIntersected) {
+        currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
+      }
+      
+      currentIntersected = intersects[0].object;
+      currentIntersected.userData.originalEmissive = currentIntersected.material.emissive.getHex();
+      currentIntersected.material.emissive.setHex(0x3b82f6);
+      
+      if (!isMobile) {
+        document.body.style.cursor = 'pointer';
+      }
+    }
+  } else {
+    if (currentIntersected) {
+      currentIntersected.material.emissive.setHex(currentIntersected.userData.originalEmissive);
+      currentIntersected = null;
+      if (!isMobile) {
+        document.body.style.cursor = 'auto';
+      }
+    }
+  }
+  
+  if (window.updateMiniMap) {
+    window.updateMiniMap();
+  }
+  
+  prevTime = time;
+  renderer.render(scene, camera);
+}
+
+function createNFTPlatform(x, y, z) {
+  // Create a floating platform for the NFT
+  const platformGeometry = new THREE.CylinderGeometry(8, 8, 1, 16);
+  const platformMaterial = new THREE.MeshLambertMaterial({ 
+    color: 0x3B82F6,
+    transparent: true,
+    opacity: 0.8
+  });
+  
+  const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+  platform.position.set(x, y, z);
+  platform.castShadow = true;
+  platform.receiveShadow = true;
+  scene.add(platform);
+  
+  // Add platform to collision objects
+  const platformBox = new THREE.Box3().setFromObject(platform);
+  collisionObjects.push(platformBox);
+  nftPlatforms.push(platform);
+  
+  return platform;
+}
+
+function createNFTPlane(nftData, position) {
+  const geometry = new THREE.PlaneGeometry(12, 12);
+  const textureLoader = new THREE.TextureLoader();
+  
+  const material = new THREE.MeshLambertMaterial({
+    color: 0xffffff,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.9
+  });
+  
+  const plane = new THREE.Mesh(geometry, material);
+  plane.position.copy(position);
+  plane.rotation.y = Math.PI / 4;
+  plane.castShadow = true;
+  plane.receiveShadow = true;
+  
+  plane.userData = {
+    nftData: nftData,
+    isNFT: true,
+    originalEmissive: 0x000000
+  };
+  
+  textureLoader.load(nftData.image, function(texture) {
+    material.map = texture;
+    material.needsUpdate = true;
+  });
+  
+  scene.add(plane);
+  nftObjects.push(plane);
+  
+  return plane;
+}
+
+async function loadNFTs() {
+  try {
+    const { data: nfts, error } = await client
+      .from('nfts')
+      .select('*')
+      .eq('listed', true);
+    
+    if (error) throw error;
+    
+    nftObjects.forEach(nft => scene.remove(nft));
+    nftObjects = [];
+    nftPlatforms.forEach(platform => scene.remove(platform));
+    nftPlatforms = [];
+    
+    if (nfts && nfts.length > 0) {
+      // Create NFTs in a vertical column from ground to sky in the center
+      const centerX = 0;
+      const centerZ = 0;
+      const startHeight = 20; // Ground level + offset
+      const endHeight = 720; // Just below sky pool level
+      const nftSpacing = 35; // Vertical spacing between NFTs
+      
+      // Calculate how many NFTs we can fit in the vertical column
+      const maxNFTs = Math.min(nfts.length, Math.floor((endHeight - startHeight) / nftSpacing));
+      
+      // Create main central column of NFTs
+      for (let i = 0; i < maxNFTs && i < nfts.length; i++) {
+        const height = startHeight + (i * nftSpacing);
+        
+        // Create floating platform for the NFT
+        createNFTPlatform(centerX, height, centerZ);
+        
+        // Position NFT slightly above the platform
+        const nftPosition = new THREE.Vector3(centerX, height + 6, centerZ);
+        createNFTPlane(nfts[i], nftPosition);
+      }
+      
+      // Create additional NFTs in circular patterns around the central column
+      let nftIndex = maxNFTs;
+      const levels = [50, 150, 250, 350, 450, 550, 650]; // Specific heights for circular arrangements
+      
+      for (let level of levels) {
+        if (nftIndex >= nfts.length) break;
+        
+        const radius = 30 + (level / 20); // Radius increases with height
+        const nftsAtThisLevel = 4; // 4 NFTs around each level
+        
+        for (let j = 0; j < nftsAtThisLevel && nftIndex < nfts.length; j++) {
+          const angle = (j / nftsAtThisLevel) * Math.PI * 2;
+          const offsetX = Math.cos(angle) * radius;
+          const offsetZ = Math.sin(angle) * radius;
+          
+          createNFTPlatform(offsetX, level, offsetZ);
+          const sideNFTPosition = new THREE.Vector3(offsetX, level + 6, offsetZ);
+          createNFTPlane(nfts[nftIndex], sideNFTPosition);
+          nftIndex++;
+        }
+      }
+      
+      // Add special premium NFTs at the very top
+      if (nftIndex < nfts.length) {
+        const premiumPositions = [
+          new THREE.Vector3(0, 740, 0),
+          new THREE.Vector3(15, 745, 15),
+          new THREE.Vector3(-15, 745, -15),
+          new THREE.Vector3(20, 750, -20),
+          new THREE.Vector3(-20, 750, 20)
+        ];
+        
+        for (let pos of premiumPositions) {
+          if (nftIndex >= nfts.length) break;
+          createNFTPlatform(pos.x, pos.y - 6, pos.z);
+          createNFTPlane(nfts[nftIndex], pos);
+          nftIndex++;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error loading NFTs:', error);
+  }
+}
+
+function openNFTModal(nftData) {
+  document.getElementById('modal-image').src = nftData.image;
+  document.getElementById('modal-title').textContent = nftData.name;
+  document.getElementById('modal-description').textContent = nftData.description;
+  document.getElementById('modal-price').textContent = nftData.price || '0.1';
+  
+  const actions = document.getElementById('modal-actions');
+  actions.innerHTML = '';
+  
+  const buyBtn = document.createElement('button');
+  buyBtn.textContent = 'Buy NFT';
+  buyBtn.onclick = () => buyNFT(nftData);
+  actions.appendChild(buyBtn);
+  
+  const transferBtn = document.createElement('button');
+  transferBtn.textContent = 'Transfer NFT';
+  transferBtn.onclick = () => transferNFT(nftData);
+  actions.appendChild(transferBtn);
+  
+  document.getElementById('nft-modal').style.display = 'block';
+}
+
+document.getElementById('close-modal').onclick = function() {
+  document.getElementById('nft-modal').style.display = 'none';
+};
+
+async function connectWallet() {
+  try {
+    if (window.ethereum) {
+      web3 = new Web3(window.ethereum);
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const accounts = await web3.eth.getAccounts();
+      account = accounts[0];
+      
+      nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
+      
+      document.getElementById('walletStatus').textContent = `Connected: ${account.substring(0, 6)}...${account.substring(38)}`;
+      document.getElementById('connectBtn').textContent = 'Connected';
+      document.getElementById('connectBtn').disabled = true;
+      
+      return true;
+    } else {
+      alert('Please install MetaMask!');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error connecting wallet:', error);
+    alert('Error connecting wallet');
+    return false;
+  }
+}
+
+document.getElementById('connectBtn').addEventListener('click', connectWallet);
+
+async function buyNFT(nftData) {
+  if (!account) {
+    alert('Please connect your wallet first');
+    return;
+  }
+  
+  try {
+    const price = web3.utils.toWei(nftData.price || '0.1', 'ether');
+    
+    const tx = await nftContract.methods.safeTransferFrom(
+      nftData.owner,
+      account,
+      nftData.tokenId
+    ).send({
+      from: account,
+      value: price
+    });
+    
+    alert('NFT purchased successfully!');
+    document.getElementById('nft-modal').style.display = 'none';
+    
+    await client
+      .from('nfts')
+      .update({ owner: account, listed: false })
+      .eq('tokenId', nftData.tokenId);
+    
+  } catch (error) {
+    console.error('Error buying NFT:', error);
+    alert('Error buying NFT');
+  }
+}
+
+async function sellNFT(nftData, price) {
+  if (!account) {
+    alert('Please connect your wallet first');
+    return;
+  }
+  
+  try {
+    await client
+      .from('nfts')
+      .update({ 
+        listed: true,
+        price: price,
+        owner: account
+      })
+      .eq('tokenId', nftData.tokenId);
+    
+    alert('NFT listed for sale!');
+  } catch (error) {
+    console.error('Error selling NFT:', error);
+    alert('Error listing NFT for sale');
+  }
+}
+
+async function transferNFT(nftData) {
+  if (!account) {
+    alert('Please connect your wallet first');
+    return;
+  }
+  
+  const receiver = prompt('Enter receiver address:');
+  if (!receiver) return;
+  
+  try {
+    const tx = await nftContract.methods.safeTransferFrom(
+      account,
+      receiver,
+      nftData.tokenId
+    ).send({ from: account });
+    
+    alert('NFT transferred successfully!');
+    document.getElementById('nft-modal').style.display = 'none';
+    
+    await client
+      .from('nfts')
+      .update({ owner: receiver, listed: false })
+      .eq('tokenId', nftData.tokenId);
+    
+  } catch (error) {
+    console.error('Error transferring NFT:', error);
+    alert('Error transferring NFT');
+  }
+}
+
+// Handle clicks on NFTs
+document.addEventListener('click', function(event) {
+  if (currentIntersected && currentIntersected.userData.isNFT) {
+    openNFTModal(currentIntersected.userData.nftData);
+  }
+});
+
+</script>
+
+</body>
+</html>
