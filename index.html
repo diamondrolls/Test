@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>💎 NFT Shooter Universe - Real Blockchain Integration</title>
+
+<!-- Supabase & Web3.js -->
+<script src="https://unpkg.com/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+
+<!-- Three.js for 3D rendering -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+
+<!-- External JavaScript -->
+<script src="jame.js"></script>
+
+<style>
+:root {
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text-dark: #f1f5f9;
+  --text-light: #cbd5e1;
+  --accent: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow: 0 4px 12px rgba(0,0,0,0.3);
+  --sidebar-width: 320px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+  font-family: 'Segoe UI', system-ui, sans-serif; 
+  background: var(--bg); 
+  color: var(--text-dark); 
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Header Styles */
+header { 
+  background: rgba(30, 41, 59, 0.95); 
+  text-align: center; 
+  padding: 12px 8px; 
+  border-bottom: 1px solid #334155; 
+  position: absolute; 
+  top: 0; 
+  width: 100%; 
+  z-index: 10;
+  backdrop-filter: blur(10px);
+}
+
+h1 { 
+  font-size: 1.4rem; 
+  margin: 0; 
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#walletStatus { 
+  margin-top: 6px; 
+  font-size: 0.8rem; 
+  color: var(--text-light); 
+}
+
+#connectBtn { 
+  margin-top: 4px; 
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+#connectBtn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* Canvas Container */
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Instructions */
+#instructions {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: white;
+  background-color: rgba(0,0,0,0.8);
+  padding: 10px;
+  z-index: 100;
+  font-size: 0.8rem;
+  backdrop-filter: blur(10px);
+}
+
+/* Mobile Controls */
+#mobile-controls {
+  position: absolute;
+  bottom: 80px;
+  right: 15px;
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-btn {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+  user-select: none;
+  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+#look-controls {
+  position: absolute;
+  bottom: 80px;
+  left: 15px;
+  width: 130px;
+  height: 130px;
+  z-index: 100;
+  background: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2);
+  display: none;
+}
+
+/* Sidebar System */
+#sidebar-toggle {
+  position: absolute;
+  top: 70px;
+  left: 15px;
+  width: 55px;
+  height: 55px;
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid var(--accent);
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 95;
+  box-shadow: var(--shadow);
+  transition: all 0.3s;
+}
+
+#sidebar-toggle:hover {
+  transform: scale(1.1);
+  background: rgba(59, 130, 246, 0.2);
+}
+
+#sidebar {
+  position: absolute;
+  top: 70px;
+  left: 80px;
+  width: var(--sidebar-width);
+  height: calc(100% - 80px);
+  background: rgba(15, 23, 42, 0.95);
+  color: white;
+  z-index: 90;
+  border-radius: 16px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+#sidebar.active {
+  display: flex;
+  z-index: 1000;
+}
+
+#sidebar-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.sidebar-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 8px 0;
+}
+
+.info-label {
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.info-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* Button Styles */
+.btn {
+  border: none;
+  background: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: var(--success);
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+.btn-danger {
+  background: var(--danger);
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 25px;
+  z-index: 1000;
+  max-width: 90%;
+  width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.modal h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.3rem;
+  color: var(--text-dark);
+  text-align: center;
+}
+
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: var(--danger);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  color: white;
+  font-size: 0.9rem;
+}
+
+/* Token Economy Styles */
+.token-balance {
+  background: rgba(59, 130, 246, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  margin: 15px 0;
+  text-align: center;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.token-balance .amount {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.purchase-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.purchase-info {
+  flex: 1;
+}
+
+.purchase-info strong {
+  display: block;
+  margin-bottom: 4px;
+  color: white;
+}
+
+.purchase-info .cost {
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+/* Building Ownership */
+.owned-buildings-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 15px;
+}
+
+.owned-building-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent);
+}
+
+/* Avatar Selection */
+#avatar-selection {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(10px);
+}
+
+#avatar-selection h2 {
+  color: white;
+  margin-bottom: 30px;
+  font-size: 2rem;
+  text-align: center;
+}
+
+.avatar-options {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.avatar-option {
+  width: 180px;
+  height: 240px;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 3px solid transparent;
+  position: relative;
+}
+
+.avatar-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.avatar-option.selected::before {
+  opacity: 0.3;
+}
+
+.avatar-option:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(59, 130, 246, 0.3);
+}
+
+.avatar-option.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px var(--accent);
+}
+
+#boy-avatar {
+  background: linear-gradient(135deg, #3b82f6, #1e40af);
+}
+
+#girl-avatar {
+  background: linear-gradient(135deg, #ec4899, #be185d);
+}
+
+.avatar-option::after {
+  content: attr(data-avatar);
+  position: absolute;
+  bottom: 15px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  text-transform: capitalize;
+  font-size: 1.1rem;
+}
+
+#player-name {
+  padding: 12px 16px;
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  color: white;
+  font-size: 1rem;
+  width: 250px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#player-name::placeholder {
+  color: #94a3b8;
+}
+
+#confirm-avatar {
+  padding: 12px 30px;
+  font-size: 1.1rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+#confirm-avatar:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Bot Chat System */
+.bot-chat-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  width: 450px;
+  max-width: 90vw;
+  max-height: 80vh;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.bot-messages {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.message {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  max-width: 85%;
+  word-wrap: break-word;
+}
+
+.user-message {
+  background: var(--accent);
+  color: white;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.bot-message {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--text-dark);
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.message-sender {
+  font-weight: bold;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+/* Transaction Notifications */
+.transaction-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  color: white;
+  z-index: 10000;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.transaction-success {
+  background: rgba(16, 185, 129, 0.9);
+  border-left: 4px solid #10b981;
+}
+
+.transaction-error {
+  background: rgba(239, 68, 68, 0.9);
+  border-left: 4px solid #ef4444;
+}
+
+.transaction-info {
+  background: rgba(59, 130, 246, 0.9);
+  border-left: 4px solid #3b82f6;
+}
+
+/* Home Button */
+.homepage {
+  width: 120px;
+  height: 45px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 25px;
+  text-align: center;
+  line-height: 45px;
+  color: white;
+  font-weight: bold;
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 100;
+  font-size: 0.8rem;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+  transition: all 0.3s;
+}
+
+.homepage:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999;
+  backdrop-filter: blur(5px);
+}
+
+.modal-overlay.active {
+  display: block;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  header h1 { font-size: 1.2rem; }
+  
+  #instructions {
+    font-size: 0.75rem;
+    bottom: 5px;
+    padding: 8px;
+  }
+  
+  #mobile-controls,
+  #look-controls {
+    display: flex;
+  }
+  
+  .mobile-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 1.1rem;
+  }
+  
+  #look-controls {
+    width: 120px;
+    height: 120px;
+  }
+  
+  #sidebar {
+    width: 280px;
+    left: 10px;
+    top: 60px;
+    height: calc(100% - 70px);
+  }
+  
+  #sidebar-toggle {
+    top: 60px;
+    left: 10px;
+  }
+  
+  .avatar-option {
+    width: 140px;
+    height: 190px;
+  }
+  
+  #avatar-selection h2 {
+    font-size: 1.6rem;
+  }
+  
+  .modal {
+    width: 95%;
+    padding: 20px;
+  }
+  
+  .bot-chat-modal {
+    width: 95%;
+  }
+}
+
+@media (max-width: 480px) {
+  .avatar-options {
+    gap: 15px;
+  }
+  
+  .avatar-option {
+    width: 120px;
+    height: 160px;
+  }
+  
+  #player-name {
+    width: 200px;
+  }
+  
+  .homepage {
+    width: 100px;
+    height: 40px;
+    line-height: 40px;
+    font-size: 0.75rem;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NFT Shooter Universe - Real ENJ Integration</h1>
+  <div id="walletStatus">Not connected to blockchain</div>
+  <button id="connectBtn">Connect Wallet</button>
+</header>
+
+<a href='https://diamondrolls.github.io/thepremiumway/'> 
+  <div class="homepage">🏠 Home</div>
+</a>
+
+<div id="canvas-container"></div>
+
+<div id="instructions">
+  <div id="desktop-instructions">WASD to move • Mouse to look around • SPACE to shoot • E to interact • B to buy bullets</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look • Tap gun button to shoot • Approach bots to interact</div>
+</div>
+
+<!-- Sidebar Toggle -->
+<button id="sidebar-toggle">☰</button>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="sidebar-content">
+    <!-- Player Stats -->
+    <div class="sidebar-section">
+      <h3>🎯 Player Stats</h3>
+      <div class="info-item">
+        <span class="info-label">Health:</span>
+        <span class="info-value" id="health-value">50/50</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Bullets:</span>
+        <span class="info-value" id="bullet-count">100</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Score:</span>
+        <span class="info-value" id="score-value">0</span>
+      </div>
+    </div>
+    
+    <!-- Real Blockchain Economy -->
+    <div class="sidebar-section">
+      <h3>💰 Real ENJ Economy</h3>
+      <div class="token-balance">
+        <div class="amount" id="token-balance">0 ENJ</div>
+        <div>Enjin Coin Balance</div>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Buildings Owned:</span>
+        <span class="info-value" id="owned-buildings-count">0</span>
+      </div>
+      <button id="transfer-token-btn-sidebar" class="btn" style="width: 100%; margin-top: 10px;">
+        🔄 Transfer ENJ
+      </button>
+      <button id="purchase-token-btn-sidebar" class="btn btn-success" style="width: 100%; margin-top: 8px;">
+        💰 Get ENJ Tokens
+      </button>
+    </div>
+    
+    <!-- Game Stats -->
+    <div class="sidebar-section">
+      <h3>📊 Game Stats</h3>
+      <div class="info-item">
+        <span class="info-label">Play Time:</span>
+        <span class="info-value" id="play-time">0m</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Distance Traveled:</span>
+        <span class="info-value" id="distance-traveled">0m</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Buildings Owned:</span>
+        <span class="info-value" id="owned-buildings-count-stats">0</span>
+      </div>
+    </div>
+    
+    <!-- Assistant Bots -->
+    <div class="sidebar-section">
+      <h3>🤖 Assistant Bots</h3>
+      <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">
+        Approach bots in the world and press E to interact
+      </div>
+      <div class="info-item">
+        <span class="info-label">Alex:</span>
+        <span class="info-value">Game Help</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Sam:</span>
+        <span class="info-value">Blockchain Help</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Controls -->
+<div id="mobile-controls">
+  <div class="mobile-btn" id="forward-btn">↑</div>
+  <div style="display:flex; gap:12px; justify-content: center;">
+    <div class="mobile-btn" id="left-btn">←</div>
+    <div class="mobile-btn" id="backward-btn">↓</div>
+    <div class="mobile-btn" id="right-btn">→</div>
+  </div>
+  <div class="mobile-btn" id="shoot-btn" style="background: rgba(239, 68, 68, 0.8);">🔫</div>
+</div>
+
+<div id="look-controls"></div>
+
+<!-- Bullet Purchase Modal -->
+<div id="bullet-modal" class="modal">
+  <button class="modal-close" id="close-bullet-modal">×</button>
+  <h3>💥 Buy Bullets</h3>
+  
+  <div class="token-balance">
+    <div class="amount" id="bullet-token-balance">0 ENJ</div>
+    <div>Your ENJ Balance</div>
+  </div>
+  
+  <div class="purchase-option">
+    <div class="purchase-info">
+      <strong>500 Bullets</strong>
+      <span class="cost">Cost: 1 ENJ</span>
+    </div>
+    <button id="buy-500-token" class="btn">Buy with ENJ</button>
+  </div>
+  
+  <div style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--text-light);">
+    💡 Connect wallet to use real ENJ tokens
+  </div>
+</div>
+
+<!-- Building Purchase Modal -->
+<div id="building-modal" class="modal">
+  <button class="modal-close" id="close-building-modal">×</button>
+  <h3>🏢 Building Ownership</h3>
+  
+  <div class="token-balance">
+    <div class="amount" id="building-token-balance">0 ENJ</div>
+    <div>Your ENJ Balance</div>
+  </div>
+  
+  <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 15px 0;">
+    <div class="info-item">
+      <span class="info-label">Building ID:</span>
+      <span class="info-value" id="building-id">-</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Current Owner:</span>
+      <span class="info-value" id="building-owner">Available</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Purchase Cost:</span>
+      <span class="info-value" id="building-cost-display">10 ENJ</span>
+    </div>
+  </div>
+  
+  <div id="purchase-section">
+    <input type="text" id="owner-name-input" class="name-input" placeholder="Enter your display name" maxlength="20" style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.5); background: rgba(255,255,255,0.1); color: white;">
+    
+    <button id="purchase-building" class="btn" style="width: 100%; margin-bottom: 10px;">
+      🏢 Purchase Building - 10 ENJ
+    </button>
+  </div>
+  
+  <div class="owned-buildings-list">
+    <h4 style="margin: 20px 0 10px 0; color: var(--accent);">Your Buildings</h4>
+    <div id="owned-buildings-container">
+      <!-- Owned buildings will be populated here -->
+    </div>
+  </div>
+</div>
+
+<!-- ENJ Transfer Modal -->
+<div id="token-transfer-modal" class="modal">
+  <button class="modal-close" id="close-transfer-modal">×</button>
+  <h3>🔄 Transfer ENJ</h3>
+  
+  <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 15px 0;">
+    <div class="info-item">
+      <span class="info-label">Your Balance:</span>
+      <span class="info-value" id="transfer-token-balance">0 ENJ</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Wallet:</span>
+      <span class="info-value" id="transfer-wallet-address">Not connected</span>
+    </div>
+  </div>
+  
+  <input type="number" id="transfer-amount" class="token-transfer-input" placeholder="Enter ENJ amount" min="1" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.5); background: rgba(255,255,255,0.1); color: white;">
+  
+  <button id="transfer-token-confirm" class="btn" style="width: 100%; margin-bottom: 10px;">
+    🔄 Transfer ENJ
+  </button>
+  
+  <div style="text-align: center; font-size: 0.85rem; color: var(--text-light);">
+    Transfer ENJ tokens to the game receiver address
+  </div>
+</div>
+
+<!-- ENJ Purchase Info Modal -->
+<div id="token-purchase-modal" class="modal">
+  <button class="modal-close" id="close-token-purchase-modal">×</button>
+  <h3>💰 Get ENJ Tokens</h3>
+  
+  <div style="text-align: center; margin: 20px 0;">
+    <div style="font-size: 3rem; margin-bottom: 10px;">🎮</div>
+    <div style="font-size: 1.1rem; margin-bottom: 15px;">Enjin Coin (ENJ) Required</div>
+  </div>
+  
+  <div style="background: rgba(59,130,246,0.1); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid rgba(59,130,246,0.3);">
+    <div class="info-item">
+      <span class="info-label">Building Cost:</span>
+      <span class="info-value">10 ENJ</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Bullet Pack:</span>
+      <span class="info-value">1 ENJ</span>
+    </div>
+  </div>
+  
+  <button id="buy-250-token" class="btn btn-success" style="width: 100%; margin-bottom: 10px;">
+    💰 Get ENJ Information
+  </button>
+  
+  <div style="font-size: 0.9rem; color: var(--text-light); line-height: 1.5;">
+    💡 ENJ is Enjin Coin - a gaming cryptocurrency used for in-game assets and NFTs.
+  </div>
+</div>
+
+<!-- Bot Chat Modal -->
+<div id="bot-chat-modal" class="bot-chat-modal">
+  <h3>🤖 Assistant Bot</h3>
+  
+  <div class="bot-messages" id="bot-messages">
+    <div class="message bot-message">
+      <div class="message-sender">Assistant Bot</div>
+      Hello! I'm here to help you with the game and blockchain features. What would you like to know?
+    </div>
+  </div>
+  
+  <div style="display: flex; gap: 10px; margin-top: 15px;">
+    <input type="text" id="bot-chat-input" placeholder="Ask about game or blockchain..." style="flex: 1; padding: 10px; border: 1px solid rgba(59,130,246,0.5); border-radius: 8px; background: rgba(255,255,255,0.1); color: white;">
+    <button id="bot-chat-send" class="btn">Send</button>
+  </div>
+  
+  <button id="close-bot-chat" class="btn" style="width: 100%; margin-top: 15px; background: #6b7280;">Close</button>
+</div>
+
+<!-- Modal Overlay -->
+<div class="modal-overlay"></div>
+
+<!-- Avatar Selection -->
+<div id="avatar-selection">
+  <h2>Choose Your Explorer</h2>
+  <p style="color: var(--text-light); margin-bottom: 30px; text-align: center;">Select your avatar and enter your display name to begin your adventure</p>
+  
+  <div class="avatar-options">
+    <div class="avatar-option" id="boy-avatar" data-avatar="boy"></div>
+    <div class="avatar-option" id="girl-avatar" data-avatar="girl"></div>
+  </div>
+  
+  <input type="text" id="player-name" placeholder="Enter your display name (max 15 chars)" maxlength="15">
+  
+  <button id="confirm-avatar">🚀 Start Exploring</button>
+  
+  <div style="margin-top: 20px; text-align: center; color: var(--text-light); font-size: 0.9rem;">
+    💡 Connect your wallet to use real ENJ tokens and own buildings on the blockchain!
+  </div>
+</div>
+
+<script src = "jame.js">
+
+</script>
+
+</body>
+</html>
