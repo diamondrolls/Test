@@ -18,6 +18,100 @@
 <script src="james.js"></script>
 
 <style>
+  const botChatCSS = `
+.bot-chat-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    width: 400px;
+    max-width: 90vw;
+}
+
+.bot-messages {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: #f9fafb;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.user-message {
+    background: #3B82F6;
+    color: white;
+    margin-left: 20px;
+}
+
+.bot-message {
+    background: #E5E7EB;
+    color: #374151;
+    margin-right: 20px;
+}
+
+.message-sender {
+    font-weight: bold;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+
+.bot-selection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.bot-option {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bot-option:hover {
+    border-color: #3B82F6;
+    background: #f8fafc;
+}
+
+.bot-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+
+.bot-name {
+    font-weight: bold;
+    color: #1F2937;
+}
+
+.bot-description {
+    font-size: 0.9em;
+    color: #6B7280;
+}
+`;
+
+// Add CSS to document
+const style = document.createElement('style');
+style.textContent = botChatCSS;
+document.head.appendChild(style);
   :root {
     --bg: #f8fafc;
     --card-bg: #ffffff;
