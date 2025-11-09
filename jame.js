@@ -2505,7 +2505,635 @@ function removeChatMessage(playerId) {
         activeChatMessages.delete(playerId);
     }
 }
+/* ==============================
+   SPECIALIZED DUAL BOT SYSTEM
+============================== */
 
+let bots = {
+  welcome: {
+    mesh: null,
+    position: new THREE.Vector3(0, 3, 0),
+    targetPosition: new THREE.Vector3(0, 3, 0),
+    speed: 3.5, // Faster to find players quickly
+    active: false,
+    messageShown: false,
+    chatBubble: null,
+    botGroup: null,
+    bullets: [],
+    lastShotTime: 0,
+    shotCooldown: 800,
+    searchRadius: 50,
+    lastPlayerCheck: 0,
+    playerCheckCooldown: 2000 // Check for players every 2 seconds
+  },
+  assistant: {
+    mesh: null,
+    position: new THREE.Vector3(-200, 3, 0),
+    targetPosition: new THREE.Vector3(-200, 3, 0),
+    speed: 1.8, // Slower, follows its own path
+    active: false,
+    lastMessageTime: 0,
+    messageCooldown: 25000, // 25 seconds between messages
+    chatBubble: null,
+    botGroup: null,
+    bullets: [],
+    lastShotTime: 0,
+    shotCooldown: 1000,
+    messages: [
+      "Have fun exploring the universe! 🚀",
+      "Remember, it's just a game - enjoy yourself! 😊",
+      "Buy more coins to unlock awesome buildings! 🏢",
+      "Don't forget to visit the spiral bridge! 🌉",
+      "Explore every corner of this world! 🌎",
+      "Collect tokens to upgrade your gear! 💰",
+      "The city center has amazing views! 🏙️",
+      "Watch out for other players! 👀",
+      "Practice your shooting skills! 🎯",
+      "This world is full of secrets! 🔍"
+    ],
+    patrolPoints: [
+      new THREE.Vector3(-200, 3, 0),   // City outskirts
+      new THREE.Vector3(0, 3, -150),   // Near starting area
+      new THREE.Vector3(150, 3, 150),  // City center
+      new THREE.Vector3(-100, 3, 200), // Bridge entrance
+      new THREE.Vector3(200, 3, -100)  // Far corner
+    ],
+    currentPatrolIndex: 0
+  }
+};
+
+// Track which players have been reminded
+let remindedPlayers = new Set();
+
+function createBots() {
+  createWelcomeBot();
+  createAssistantBot();
+}
+
+function createWelcomeBot() {
+  const bot = bots.welcome;
+  const botGroup = new THREE.Group();
+  
+  // Black hover board (sleek design for speed)
+  const boardGeometry = new THREE.PlaneGeometry(7, 7);
+  const boardMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x000000,
+    metalness: 0.9,
+    roughness: 0.1,
+    side: THREE.DoubleSide
+  });
+  const board = new THREE.Mesh(boardGeometry, boardMaterial);
+  board.rotation.x = -Math.PI / 2;
+  board.castShadow = true;
+  board.receiveShadow = true;
+  botGroup.add(board);
+
+  // RED UNDERGLOW (brighter for visibility)
+  const underglowGeometry = new THREE.PlaneGeometry(7.5, 7.5);
+  const underglowMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xff0000,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
+  underglow.rotation.x = -Math.PI / 2;
+  underglow.position.y = -0.1;
+  botGroup.add(underglow);
+
+  // Streamlined black robot body (aerodynamic)
+  const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 1.5, 8);
+  const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  body.position.y = 1.2;
+  botGroup.add(body);
+
+  // Sleek black robot head
+  const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
+  const headMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const head = new THREE.Mesh(headGeometry, headMaterial);
+  head.position.y = 2.2;
+  botGroup.add(head);
+
+  // Bright red eyes (scanning)
+  const eyeGeometry = new THREE.SphereGeometry(0.15, 6, 6);
+  const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+  
+  const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  leftEye.position.set(-0.25, 2.25, 0.4);
+  botGroup.add(leftEye);
+  
+  const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  rightEye.position.set(0.25, 2.25, 0.4);
+  botGroup.add(rightEye);
+
+  botGroup.position.copy(bot.position);
+  botGroup.castShadow = true;
+  scene.add(botGroup);
+  
+  bot.botGroup = botGroup;
+  bot.mesh = botGroup;
+  bot.active = true;
+  
+  console.log("Welcome Bot (Fast) created!");
+}
+
+function createAssistantBot() {
+  const bot = bots.assistant;
+  const botGroup = new THREE.Group();
+  
+  // Black hover board (standard size)
+  const boardGeometry = new THREE.PlaneGeometry(8, 8);
+  const boardMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0x000000,
+    metalness: 0.9,
+    roughness: 0.1,
+    side: THREE.DoubleSide
+  });
+  const board = new THREE.Mesh(boardGeometry, boardMaterial);
+  board.rotation.x = -Math.PI / 2;
+  board.castShadow = true;
+  board.receiveShadow = true;
+  botGroup.add(board);
+
+  // RED UNDERGLOW
+  const underglowGeometry = new THREE.PlaneGeometry(8.5, 8.5);
+  const underglowMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xff0000,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide
+  });
+  const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
+  underglow.rotation.x = -Math.PI / 2;
+  underglow.position.y = -0.1;
+  botGroup.add(underglow);
+
+  // Black robot body (friendly design)
+  const bodyGeometry = new THREE.BoxGeometry(1.5, 2, 1);
+  const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  body.position.y = 1.5;
+  botGroup.add(body);
+
+  // Black robot head (friendly)
+  const headGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+  const headMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  const head = new THREE.Mesh(headGeometry, headMaterial);
+  head.position.y = 2.8;
+  botGroup.add(head);
+
+  // Red eyes (friendly pattern)
+  const eyeGeometry = new THREE.SphereGeometry(0.15, 6, 6);
+  const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+  
+  const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  leftEye.position.set(-0.4, 2.9, 0.5);
+  botGroup.add(leftEye);
+  
+  const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  rightEye.position.set(0.4, 2.9, 0.5);
+  botGroup.add(rightEye);
+  
+  const smileGeometry = new THREE.TorusGeometry(0.3, 0.05, 8, 12, Math.PI);
+  const smileMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+  const smile = new THREE.Mesh(smileGeometry, smileMaterial);
+  smile.position.set(0, 2.5, 0.5);
+  smile.rotation.x = Math.PI / 2;
+  botGroup.add(smile);
+
+  botGroup.position.copy(bot.position);
+  botGroup.castShadow = true;
+  scene.add(botGroup);
+  
+  bot.botGroup = botGroup;
+  bot.mesh = botGroup;
+  bot.active = true;
+  
+  console.log("Assistant Bot (Patrol) created!");
+}
+
+function updateBots() {
+  updateWelcomeBot();
+  updateAssistantBot();
+  updateBotBullets();
+}
+
+function updateWelcomeBot() {
+  const bot = bots.welcome;
+  if (!bot.active || !bot.mesh) return;
+  
+  const currentTime = Date.now();
+  
+  // Check for unsigned-in players every 2 seconds
+  if (currentTime - bot.lastPlayerCheck > bot.playerCheckCooldown) {
+    findAndApproachUnsignedPlayer(bot);
+    bot.lastPlayerCheck = currentTime;
+  }
+  
+  // Move towards target (player or random point)
+  const direction = new THREE.Vector3()
+    .subVectors(bot.targetPosition, bot.position)
+    .normalize();
+  
+  const distanceToTarget = bot.position.distanceTo(bot.targetPosition);
+  
+  if (distanceToTarget > 3) {
+    bot.position.add(direction.multiplyScalar(bot.speed));
+    bot.mesh.position.copy(bot.position);
+    
+    // Rotate to face movement direction
+    if (direction.length() > 0.1) {
+      bot.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+    }
+  } else {
+    // Set random exploration point if no player found
+    setRandomExplorationPoint(bot);
+  }
+  
+  // Check if player shoots at bot
+  checkBotHit(bot);
+}
+
+function findAndApproachUnsignedPlayer(bot) {
+  // Check if player is not signed in and hasn't been reminded yet
+  const isSignedIn = document.body.classList.contains('signed-in');
+  const playerId = multiplayer ? multiplayer.playerId : 'local-player';
+  
+  if (!isSignedIn && !remindedPlayers.has(playerId)) {
+    const distanceToPlayer = bot.position.distanceTo(playerAvatar.position);
+    
+    if (distanceToPlayer < bot.searchRadius) {
+      // Found an unsigned player! Approach them
+      bot.targetPosition.copy(playerAvatar.position);
+      
+      // Show sign-in message when close enough
+      if (distanceToPlayer < 15) {
+        showBotMessage('welcome', "Welcome! Please sign in to access chat, buildings, and full features!");
+        remindedPlayers.add(playerId); // Mark as reminded
+      }
+    }
+  }
+}
+
+function setRandomExplorationPoint(bot) {
+  // Explore areas where players might be
+  const explorationAreas = [
+    new THREE.Vector3(-150, 3, -150), // Starting area
+    new THREE.Vector3(0, 3, 0),       // Center
+    new THREE.Vector3(150, 3, 150),   // City
+    new THREE.Vector3(-200, 3, 100),  // Bridge area
+    new THREE.Vector3(100, 3, -200)   // Exploration area
+  ];
+  
+  const randomPoint = explorationAreas[Math.floor(Math.random() * explorationAreas.length)];
+  bot.targetPosition.copy(randomPoint);
+}
+
+function updateAssistantBot() {
+  const bot = bots.assistant;
+  if (!bot.active || !bot.mesh) return;
+  
+  // Follow patrol route
+  const currentTarget = bot.patrolPoints[bot.currentPatrolIndex];
+  const direction = new THREE.Vector3()
+    .subVectors(currentTarget, bot.position)
+    .normalize();
+  
+  const distanceToTarget = bot.position.distanceTo(currentTarget);
+  
+  if (distanceToTarget > 5) {
+    bot.position.add(direction.multiplyScalar(bot.speed));
+    bot.mesh.position.copy(bot.position);
+    
+    // Rotate to face movement direction
+    if (direction.length() > 0.1) {
+      bot.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+    }
+  } else {
+    // Move to next patrol point
+    bot.currentPatrolIndex = (bot.currentPatrolIndex + 1) % bot.patrolPoints.length;
+  }
+  
+  // Show messages only if player crosses path (close proximity)
+  const distanceToPlayer = bot.position.distanceTo(playerAvatar.position);
+  if (distanceToPlayer < 25) {
+    const currentTime = Date.now();
+    if (currentTime - bot.lastMessageTime > bot.messageCooldown) {
+      const randomMessage = bot.messages[Math.floor(Math.random() * bot.messages.length)];
+      showBotMessage('assistant', randomMessage);
+      bot.lastMessageTime = currentTime;
+    }
+  }
+  
+  // Check if player shoots at bot
+  checkBotHit(bot);
+}
+
+function showBotMessage(botType, message) {
+  const bot = bots[botType];
+  const chatBubble = document.getElementById(`${botType}-bot`);
+  const messageElement = document.getElementById(botType === 'assistant' ? 'assistant-message' : null);
+  
+  if (messageElement) {
+    messageElement.textContent = message;
+  }
+  
+  if (chatBubble) {
+    chatBubble.style.display = 'block';
+    chatBubble.style.opacity = '1';
+    
+    // Position above bot
+    if (bot.mesh) {
+      const screenPosition = bot.mesh.position.clone();
+      screenPosition.project(camera);
+      
+      const x = (screenPosition.x * 0.5 + 0.5) * window.innerWidth;
+      const y = -(screenPosition.y * 0.5 - 0.5) * window.innerHeight;
+      
+      chatBubble.style.left = `${x}px`;
+      chatBubble.style.top = `${y - 80}px`;
+    }
+    
+    // Hide after 5 seconds
+    setTimeout(() => {
+      chatBubble.style.opacity = '0';
+      setTimeout(() => {
+        chatBubble.style.display = 'none';
+      }, 300);
+    }, 5000);
+  }
+}
+
+function checkBotHit(bot) {
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const bullet = bullets[i];
+    if (bullet.owner === 'player' && bullet.active) {
+      const distance = bullet.position.distanceTo(bot.position);
+      if (distance < 10) {
+        // Bot was hit!
+        bullet.active = false;
+        createBulletImpact(bullet.position);
+        
+        // Bot shoots back!
+        botShoot(bot);
+        
+        // Visual feedback - flash red
+        if (bot.mesh) {
+          const originalColor = bot.mesh.children[0].material.color.getHex();
+          bot.mesh.children[0].material.color.set(0xff0000);
+          
+          setTimeout(() => {
+            if (bot.mesh) {
+              bot.mesh.children[0].material.color.set(originalColor);
+            }
+          }, 200);
+        }
+        break;
+      }
+    }
+  }
+}
+
+function botShoot(bot) {
+  const currentTime = Date.now();
+  if (currentTime - bot.lastShotTime < bot.shotCooldown) return;
+  
+  if (playerAvatar) {
+    // Calculate direction to player
+    const direction = new THREE.Vector3()
+      .subVectors(playerAvatar.position, bot.position)
+      .normalize();
+    
+    const startPosition = bot.position.clone().add(
+      new THREE.Vector3(0, 2, 0)
+    ).add(direction.clone().multiplyScalar(3));
+    
+    const bullet = {
+      position: startPosition,
+      direction: direction.clone(),
+      velocity: direction.clone().multiplyScalar(40),
+      owner: bot === bots.welcome ? 'welcome-bot' : 'assistant-bot',
+      active: true,
+      distanceTraveled: 0,
+      maxDistance: 1000
+    };
+    
+    bot.bullets.push(bullet);
+    createBotBulletVisual(bullet, bot);
+    bot.lastShotTime = currentTime;
+  }
+}
+
+function createBotBulletVisual(bullet, bot) {
+  const bulletSize = 1;
+  const bulletGeometry = new THREE.SphereGeometry(bulletSize, 6, 6);
+  const bulletMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xff0000, // Red bullets
+    transparent: true,
+    opacity: 0.9
+  });
+  
+  const bulletMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
+  bulletMesh.position.copy(bullet.position);
+  bulletMesh.userData = { bulletData: bullet };
+  scene.add(bulletMesh);
+  
+  bullet.mesh = bulletMesh;
+}
+
+function updateBotBullets() {
+  updateSingleBotBullets(bots.welcome);
+  updateSingleBotBullets(bots.assistant);
+}
+
+function updateSingleBotBullets(bot) {
+  for (let i = bot.bullets.length - 1; i >= 0; i--) {
+    const bullet = bot.bullets[i];
+    
+    if (!bullet.active) {
+      if (bullet.mesh) scene.remove(bullet.mesh);
+      bot.bullets.splice(i, 1);
+      continue;
+    }
+    
+    // Update position
+    const velocityStep = bullet.velocity.clone().multiplyScalar(0.1);
+    bullet.position.add(velocityStep);
+    bullet.distanceTraveled += velocityStep.length();
+    
+    // Update visual mesh
+    if (bullet.mesh) bullet.mesh.position.copy(bullet.position);
+    
+    // Check collision with player
+    if (playerAvatar && bullet.owner.includes('bot')) {
+      const distance = bullet.position.distanceTo(playerAvatar.position);
+      if (distance < 8) {
+        createBulletImpact(bullet.position);
+        bullet.active = false;
+        playerHit();
+      }
+    }
+    
+    // Remove bullets that go too far
+    if (bullet.distanceTraveled > bullet.maxDistance) {
+      bullet.active = false;
+    }
+  }
+}
+
+/* ==============================
+   AUTHENTICATION & RESTRICTIONS
+============================== */
+
+function checkAuthenticationStatus() {
+  client.auth.getSession().then(({ data }) => {
+    if (data.session) {
+      // User is signed in
+      document.body.classList.add('signed-in');
+      enableSidebarAndChat();
+      
+      // Remove bots when signed in
+      removeBots();
+    } else {
+      // User is not signed in
+      document.body.classList.remove('signed-in');
+      disableSidebarAndChat();
+      
+      // Create bots for non-signed in users
+      if (!bots.welcome.active && !bots.assistant.active) {
+        createBots();
+      }
+    }
+  });
+}
+
+function disableSidebarAndChat() {
+  // Sidebar toggle is hidden via CSS
+  // Chat input is hidden via CSS
+  console.log("Sidebar and chat disabled - please sign in");
+}
+
+function enableSidebarAndChat() {
+  console.log("Sidebar and chat enabled - welcome!");
+}
+
+function removeBots() {
+  // Remove welcome bot
+  if (bots.welcome.mesh) {
+    scene.remove(bots.welcome.mesh);
+    bots.welcome.active = false;
+  }
+  
+  // Remove assistant bot
+  if (bots.assistant.mesh) {
+    scene.remove(bots.assistant.mesh);
+    bots.assistant.active = false;
+  }
+  
+  // Clear bot bullets
+  bots.welcome.bullets = [];
+  bots.assistant.bullets = [];
+  
+  console.log("Bots removed - user is signed in");
+}
+
+// Update the authentication check in DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  client.auth.getSession().then(({ data }) => {
+    if (!data.session) {
+      // Allow free roaming but restrict features
+      console.log("Free roam mode activated - bots will guide you");
+      
+      // Set up mobile UI
+      if (isMobile) {
+        document.getElementById('desktop-instructions').style.display = 'none';
+        document.getElementById('mobile-instructions').style.display = 'block';
+        setupMobileControls();
+      }
+
+      // Initialize avatar selection (will create bots after avatar selection)
+      setupAvatarSelection();
+      
+    } else {
+      // User is signed in - full access
+      console.log("Full access granted - welcome back!");
+      
+      if (isMobile) {
+        document.getElementById('desktop-instructions').style.display = 'none';
+        document.getElementById('mobile-instructions').style.display = 'block';
+        setupMobileControls();
+      }
+
+      setupAvatarSelection();
+    }
+  });
+});
+
+// Update startGame function to include bot updates in animation loop
+function startGame() {
+  // Initialize sidebar
+  initSidebar();
+  
+  // Initialize multiplayer
+  multiplayer = new WebRTCMultiplayer();
+  
+  // Set player name from input
+  const nameInput = document.getElementById('player-name');
+  if (nameInput && nameInput.value.trim()) {
+    multiplayer.playerName = nameInput.value.trim();
+  }
+  
+  // Generate random color for player
+  multiplayer.playerColor = Math.random() * 0xFFFFFF;
+  
+  // Hide avatar selection
+  document.getElementById('avatar-selection').style.display = 'none';
+  
+  // Initialize game systems
+  init3DScene();
+  loadNFTs();
+  initTokenSystem();
+  initBuildingOwnership();
+  setupBulletPurchaseWithTokens();
+  
+  // Check authentication status
+  checkAuthenticationStatus();
+  
+  // Start position updates
+  setInterval(() => {
+    if (multiplayer) {
+      multiplayer.sendPositionUpdate();
+    }
+  }, 100);
+}
+
+// Add bot updates to the main animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const time = performance.now();
+  const delta = (time - prevTime) / 1000;
+  hoverTime += delta;
+  
+  if (((controls && controls.isLocked) || isMobile) && canMove) {
+    // ... existing player movement code ...
+  }
+  
+  // Update bots (only if they're active)
+  updateBots();
+  
+  updateThirdPersonCamera();
+  updateBullets();
+  checkNFTInteraction();
+  
+  if (window.updateMiniMap) {
+    window.updateMiniMap();
+  }
+  
+  prevTime = time;
+  renderer.render(scene, camera);
+       }
 /* ==============================
    MULTIPLAYER SYSTEM
 ============================== */
