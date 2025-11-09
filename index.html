@@ -870,6 +870,44 @@
       width: 90%;
     }
   }
+  /* Roaming Bot Styles */
+#welcome-bot, #assistant-bot {
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid rgba(255, 0, 0, 0.5);
+  z-index: 1001;
+  pointer-events: none;
+}
+
+#welcome-bot .chat-bubble-sender,
+#assistant-bot .chat-bubble-sender {
+  color: #ff6b6b;
+  font-size: 11px;
+}
+
+#welcome-bot .chat-bubble-text,
+#assistant-bot .chat-bubble-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: white;
+}
+
+/* Disabled sidebar for non-signed in users */
+body:not(.signed-in) #sidebar-toggle,
+body:not(.signed-in) #chat-input,
+body:not(.signed-in) #chat-send {
+  display: none !important;
+}
+
+body:not(.signed-in) #sidebar {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+body:not(.signed-in) #sidebar-toggle {
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: #666 !important;
+  cursor: not-allowed;
+      }
 </style>
 </head>
 <body>
@@ -1141,6 +1179,16 @@
     <input type="text" id="player-name" placeholder="Enter your display name" maxlength="15" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 200px;">
   </div>
   <button id="confirm-avatar">Start Exploring</button>
+</div>
+  <!-- Roaming Bots -->
+<div id="welcome-bot" class="chat-bubble" style="display: none;">
+  <div class="chat-bubble-sender">🤖 Welcome Bot</div>
+  <div class="chat-bubble-text">Welcome! Please sign in to access chat, buildings, and full features!</div>
+</div>
+
+<div id="assistant-bot" class="chat-bubble" style="display: none;">
+  <div class="chat-bubble-sender">🤖 Assistant Bot</div>
+  <div class="chat-bubble-text" id="assistant-message">Have fun exploring!</div>
 </div>
 <script src= "jame.js"> </script>
 </body>
