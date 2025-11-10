@@ -2015,6 +2015,7 @@ function animate() {
     window.updateMiniMap();
   }
   
+window.assistantBots?.forEach(bot => bot.update(delta));
   prevTime = time;
   renderer.render(scene, camera);
 }
