@@ -169,6 +169,11 @@ function startGame() {
   
   // Initialize game systems
   init3DScene();
+
+window.assistantBots = [
+  new AssistantBot('bot-01', 'Assistant A'),
+  new AssistantBot('bot-02', 'Assistant B')
+];
   loadNFTs();
   initTokenSystem();
   initBuildingOwnership();
