@@ -2013,7 +2013,189 @@ function animate() {
   prevTime = time;
   renderer.render(scene, camera);
 }
+/* ==============================
+   ASSISTANT BOTS
+============================== */
+class AssistantBot {
+  constructor(id, name = "Bot") {
+    this.id = id;
+    this.name = name;
+    this.group = new THREE.Group();
 
+    // ----- board (same style as player) -----
+    const boardGeo = new THREE.PlaneGeometry(10, 10);
+    const boardMat = new THREE.MeshStandardMaterial({
+      color: 0xff8800,          // bright orange
+      metalness: 0.8,
+      roughness: 0.2,
+      side: THREE.DoubleSide
+    });
+    const board = new THREE.Mesh(boardGeo, boardMat);
+    board.rotation.x = -Math.PI / 2;
+    board.castShadow = true;
+    board.receiveShadow = true;
+    this.group.add(board);
+
+    // ----- under-glow -----
+    const glowGeo = new THREE.PlaneGeometry(10.5, 10.5);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide
+    });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = -0.1;
+    this.group.add(glow);
+
+    // ----- simple head (sphere) -----
+    const headGeo = new THREE.SphereGeometry(0.6, 8, 8);
+    const headMat = new THREE.MeshLambertMaterial({ color: 0xfcd34d });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 2.8;
+    this.group.add(head);
+
+    // ----- name tag (same style as multiplayer) -----
+    const tag = this.createNameTag(name, 0xff8800);
+    this.group.add(tag);
+
+    // ----- spawn -----
+    this.spawn();
+    scene.add(this.group);
+
+    // ----- AI state -----
+    this.velocity = new THREE.Vector3();
+    this.targetPos = this.group.position.clone();
+    this.shootCooldown = 0;
+    this.lastShot = 0;
+  }
+
+  createNameTag(name, color) {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 256; canvas.height = 64;
+    ctx.fillStyle = `#${color.toString(16).padStart(6,'0')}`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, canvas.width/2, canvas.height/2);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex });
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.y = 5;
+    sprite.scale.set(10,2.5,1);
+    return sprite;
+  }
+
+  spawn() {
+    // random safe spot on the ground (avoid buildings / bridge)
+    let x, z, attempts = 0;
+    do {
+      x = (Math.random() - 0.5) * (worldSize - 200);
+      z = (Math.random() - 0.5) * (worldSize - 200);
+      attempts++;
+    } while (this.collides(x, hoverHeight, z) && attempts < 50);
+
+    this.group.position.set(x, hoverHeight, z);
+  }
+
+  collides(x, y, z) {
+    const testBox = new THREE.Box3().setFromCenterAndSize(
+      new THREE.Vector3(x, y, z),
+      new THREE.Vector3(10, 4, 10)
+    );
+    for (const box of collisionObjects) {
+      if (testBox.intersectsBox(box)) return true;
+    }
+    return false;
+  }
+
+  update(delta) {
+    // ---- wander ----
+    if (this.group.position.distanceTo(this.targetPos) < 15) {
+      // pick new random point every ~5-10 s
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = 80 + Math.random() * 120;
+      this.targetPos.set(
+        this.group.position.x + Math.cos(angle) * dist,
+        hoverHeight,
+        this.group.position.z + Math.sin(angle) * dist
+      );
+    }
+
+    const dir = this.targetPos.clone().sub(this.group.position);
+    dir.y = 0;
+    if (dir.length() > 0) dir.normalize();
+
+    const speed = 40 * delta;
+    this.velocity.lerp(dir.multiplyScalar(speed), 0.1);
+    const newPos = this.group.position.clone().add(this.velocity.clone().multiplyScalar(delta));
+
+    // simple collision resolve
+    if (!this.collides(newPos.x, newPos.y, newPos.z)) {
+      this.group.position.copy(newPos);
+    }
+
+    // ---- look at player (optional) ----
+    if (playerAvatar) {
+      const toPlayer = playerAvatar.position.clone().sub(this.group.position);
+      toPlayer.y = 0;
+      if (toPlayer.length() > 0) {
+        this.group.lookAt(this.group.position.clone().add(toPlayer));
+      }
+    }
+
+    // ---- shoot at player if close ----
+    if (playerAvatar) {
+      const distToPlayer = this.group.position.distanceTo(playerAvatar.position);
+      if (distToPlayer < 120) {
+        this.shootCooldown -= delta;
+        if (this.shootCooldown <= 0) {
+          this.shootAtPlayer();
+          this.shootCooldown = 1.2 + Math.random() * 0.8; // 1.2-2 s between shots
+        }
+      }
+    }
+  }
+
+  shootAtPlayer() {
+    if (!playerAvatar) return;
+    const now = Date.now();
+    if (now - this.lastShot < 300) return;
+    this.lastShot = now;
+
+    const dir = playerAvatar.position.clone().sub(this.group.position).normalize();
+    const start = this.group.position.clone().add(new THREE.Vector3(0,2,0)).add(dir.clone().multiplyScalar(5));
+
+    const bullet = {
+      position: start,
+      direction: dir,
+      velocity: dir.clone().multiplyScalar(bulletSpeed),
+      owner: 'bot',
+      active: true,
+      distanceTraveled: 0,
+      maxDistance: 2000
+    };
+    bullets.push(bullet);
+    createBulletVisual(bullet);
+  }
+
+  dispose() {
+    scene.remove(this.group);
+    // remove any bullets owned by this bot
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      if (bullets[i].owner === 'bot' && bullets[i].botId === this.id) {
+        if (bullets[i].mesh) scene.remove(bullets[i].mesh);
+        if (bullets[i].glowMesh) scene.remove(bullets[i].glowMesh);
+        bullets.splice(i,1);
+      }
+    }
+  }
+}
 /* ==============================
    NFT INTERACTION
 ============================== */
