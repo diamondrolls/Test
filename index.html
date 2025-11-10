@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>💎 NFT Shooter Universe</title>
+
+<!-- Supabase & Web3.js & WalletConnect -->
+<script src="https://unpkg.com/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+<script src="https://unpkg.com/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+
+<!-- Three.js for 3D rendering -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/PointerLockControls.js"></script>
+
+<style>
+  :root {
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text-dark: #1e293b;
+    --text-light: #475569;
+    --accent: #3b82f6;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    --sidebar-width: 300px;
+  }
+  
+  .homepage{
+    border-style: outset;
+    width: 120px;
+    height: 45px;
+    background-image: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg');
+    background-size: 120px 45px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 45px;
+    color: white;
+    font-weight: bold;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 100;
+    font-size: 0.8rem;
+  }
+  
+  * { box-sizing: border-box; }
+  body { 
+    font-family: system-ui, sans-serif; 
+    background: var(--bg); 
+    margin: 0; 
+    padding: 0; 
+    color: var(--text-dark); 
+    overflow: hidden;
+    touch-action: none;
+  }
+  
+  header { 
+    background: var(--card-bg); 
+    text-align: center; 
+    padding: 12px 8px; 
+    border-bottom: 1px solid #e2e8f0; 
+    position: absolute; 
+    top: 0; 
+    width: 100%; 
+    z-index: 10; 
+  }
+  
+  h1 { font-size: 1.4rem; margin: 0; }
+  #walletStatus { margin-top: 6px; font-size: 0.8rem; color: var(--text-light); }
+  #connectBtn { 
+    margin-top: 4px; 
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+  
+  #canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  #instructions {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: white;
+    background-color: rgba(0,0,0,0.7);
+    padding: 8px;
+    z-index: 100;
+    font-size: 0.8rem;
+  }
+  
+  #mobile-controls {
+    position: absolute;
+    bottom: 80px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .mobile-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  
+  #look-controls {
+    position: absolute;
+    bottom: 80px;
+    left: 10px;
+    width: 120px;
+    height: 120px;
+    z-index: 100;
+    background: rgba(0,0,0,0.2);
+    border-radius: 50%;
+    touch-action: none;
+  }
+  
+  #nft-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 350px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  #nft-modal img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    border-radius: 8px;
+    margin-bottom: 15px;
+  }
+  
+  #nft-modal h3 {
+    margin: 8px 0 4px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  #nft-modal p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    color: var(--text-light);
+  }
+  
+  .nft-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  
+  button {
+    border: none;
+    background: var(--accent);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  button:hover {
+    background: #2563eb;
+  }
+  
+  #close-modal {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #ef4444;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  #close-modal:hover {
+    background: #dc2626;
+  }
+  
+  #mini-map {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    width: 120px;
+    height: 120px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 8px;
+    z-index: 100;
+    border: 2px solid white;
+  }
+  
+  /* Sidebar Styles - Popup Version */
+  #sidebar-toggle {
+    position: absolute;
+    top: 70px;
+    left: 10px;
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.85);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 95;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  #sidebar {
+    position: absolute;
+    top: 70px;
+    left: 70px;
+    width: var(--sidebar-width);
+    height: calc(100% - 80px);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    z-index: 90;
+    border-radius: 12px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+  }
+  
+  #sidebar.active {
+    display: flex;
+    z-index: 1000;
+  }
+  
+  #sidebar-content {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+  }
+  
+  .sidebar-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .sidebar-section:last-child {
+    border-bottom: none;
+  }
+  
+  .sidebar-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1rem;
+    color: #3b82f6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .sidebar-section h3 i {
+    font-size: 1.1rem;
+  }
+  
+  .info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px 0;
+  }
+  
+  .info-label {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+  }
+  
+  .info-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+  }
+  
+  #location-display {
+    background: rgba(59, 130, 246, 0.2);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-top: 8px;
+  }
+  
+  #players-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+  }
+  
+  .player-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .player-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+  }
+  
+  .player-name {
+    flex: 1;
+    font-size: 0.85rem;
+  }
+  
+  /* Chat Panel in Sidebar */
+  #chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    max-height: 300px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  #chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    color: white;
+    font-size: 0.8rem;
+  }
+  
+  .chat-message {
+    margin-bottom: 8px;
+    word-wrap: break-word;
+    line-height: 1.4;
+  }
+  
+  .chat-sender {
+    font-weight: bold;
+    color: #3b82f6;
+  }
+  
+  #chat-input-container {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0, 0, 0, 0.3);
+  }
+  
+  #chat-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.9);
+    font-size: 0.8rem;
+    outline: none;
+  }
+  
+  #chat-send {
+    margin-left: 8px;
+    padding: 8px 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  /* Chat Bubble Styles - FIXED POSITION */
+  .chat-bubble {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    max-width: 200px;
+    word-wrap: break-word;
+    text-align: center;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .chat-bubble.own-message {
+    background: rgba(59, 130, 246, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .chat-bubble-sender {
+    font-weight: bold;
+    font-size: 10px;
+    margin-bottom: 2px;
+    color: #93c5fd;
+  }
+  
+  .chat-bubble.own-message .chat-bubble-sender {
+    color: #dbeafe;
+  }
+  
+  .chat-bubble-text {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  
+  /* Chat bubble arrow */
+  .chat-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.85);
+  }
+  
+  .chat-bubble.own-message::after {
+    border-top-color: rgba(59, 130, 246, 0.9);
+  }
+  
+  #avatar-selection {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+  
+  #avatar-selection h2 {
+    color: white;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+  }
+  
+  .avatar-options {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .avatar-option {
+    width: 200px;
+    height: 300px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    border: 3px solid transparent;
+  }
+  
+  .avatar-option:hover {
+    transform: scale(1.05);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  }
+  
+  .avatar-option.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent);
+  }
+  
+  #boy-avatar {
+    background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/431BBB65-C6F8-49BC-B882-EA5BBE885462.png');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  #girl-avatar {
+    background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/3974D02C-0D5B-4F49-8597-5185D48FB2A1.png');
+    background-size: cover;
+    background-position: center;
+  }
+  
+  #confirm-avatar {
+    margin-top: 30px;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  #confirm-avatar:hover {
+    background: #2563eb;
+  }
+  
+  /* Bullet Purchase Modal */
+  #bullet-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 350px;
+  }
+  
+  #bullet-modal h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    color: var(--text-dark);
+  }
+  
+  .bullet-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .bullet-option button {
+    background: #10b981;
+  }
+  
+  .bullet-option button:hover {
+    background: #059669;
+  }
+  
+  /* Building Purchase Modal */
+  #building-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  #building-modal h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    color: var(--text-dark);
+  }
+  
+  .building-info {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+  
+  .building-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .price-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  
+  .name-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  
+  .owned-buildings-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 15px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 15px;
+  }
+  
+  .owned-building-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #f1f5f9;
+    border-radius: 6px;
+  }
+  
+  .building-owner-tag {
+    position: absolute;
+    background: rgba(59, 130, 246, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    pointer-events: none;
+    transform: translateY(-100%);
+    white-space: nowrap;
+  }
+  
+  /* NEW: NFT Transfer Modal Styles */
+  #nft-transfer-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 350px;
+  }
+  
+  #nft-transfer-modal h3 {
+    margin: 0 0 15px 0;
+    font-size: 1.2rem;
+    color: var(--text-dark);
+  }
+  
+  .nft-transfer-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .nft-transfer-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  
+  .nft-transfer-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .nft-transfer-actions button {
+    flex: 1;
+  }
+  
+  #transfer-nft-btn {
+    background: #10b981;
+  }
+  
+  #transfer-nft-btn:hover {
+    background: #059669;
+  }
+  
+  /* NEW: NFT Purchase Modal Styles */
+  #nft-purchase-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 20px;
+    z-index: 1000;
+    max-width: 90%;
+    width: 400px;
+  }
+  
+  .nft-cost-display {
+    background: #f1f5f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+  }
+  
+  .nft-cost-display .cost {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent);
+  }
+  
+  .nft-balance-check {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+  }
+  
+  .nft-balance-check.insufficient {
+    background: #fee2e2;
+    border-color: #ef4444;
+  }
+  
+  .nft-balance-check.sufficient {
+    background: #d1fae5;
+    border-color: #10b981;
+  }
+  
+  /* Building Purchase Updates */
+  .nft-building-cost {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--accent);
+    margin-bottom: 10px;
+    text-align: center;
+    padding: 8px;
+    background: #f1f5f9;
+    border-radius: 6px;
+  }
+  
+  /* Bullet Purchase Updates */
+  .nft-bullet-cost {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: 5px;
+  }
+  
+  /* Modal overlay to prevent interactions when sidebar is open */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+  
+  .modal-overlay.active {
+    display: block;
+  }
+  
+  @media (max-width: 500px) { 
+    header h1 { font-size: 1.2rem; } 
+    #instructions {
+      font-size: 0.7rem;
+      bottom: 5px;
+    }
+    #mobile-controls {
+      bottom: 60px;
+    }
+    #look-controls {
+      bottom: 60px;
+      width: 100px;
+      height: 100px;
+    }
+    .mobile-btn {
+      width: 45px;
+      height: 45px;
+      font-size: 1rem;
+    }
+    #mini-map {
+      width: 100px;
+      height: 100px;
+      top: 60px;
+    }
+    .avatar-option {
+      width: 150px;
+      height: 225px;
+    }
+    #avatar-selection h2 {
+      font-size: 1.4rem;
+    }
+    #sidebar {
+      width: 280px;
+      left: 10px;
+      top: 60px;
+      height: calc(100% - 70px);
+    }
+    #sidebar-toggle {
+      top: 60px;
+    }
+    .chat-bubble {
+      max-width: 150px;
+      font-size: 11px;
+    }
+    #building-modal {
+      width: 90%;
+    }
+    #nft-transfer-modal, #nft-purchase-modal {
+      width: 90%;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NFT Shooter Universe</h1>
+  <div id="walletStatus">Not connected</div>
+  <button id="connectBtn">Connect Wallet</button>
+</header>
+
+<a href='https://diamondrolls.github.io/thepremiumway/'> 
+  <div class="homepage">Home</div>
+</a>
+
+<div id="canvas-container"></div>
+
+<div id="instructions">
+  <div id="desktop-instructions">Click to lock pointer and navigate with WASD keys. Move mouse to look around. Press SPACE to shoot. Press T to chat. Press B to buy bullets. Press E to interact with buildings.</div>
+  <div id="mobile-instructions" style="display:none;">Use controls to move and look around. Tap the gun button to shoot.</div>
+</div>
+
+<!-- Sidebar Toggle Button -->
+<button id="sidebar-toggle">☰</button>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div id="sidebar-content">
+    <!-- Player Stats Section -->
+    <div class="sidebar-section">
+      <h3>🎯 Player Stats</h3>
+      <div class="info-item">
+        <span class="info-label">Health:</span>
+        <span class="info-value" id="health-value">50</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Bullets:</span>
+        <span class="info-value" id="bullet-count">100</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Score:</span>
+        <span class="info-value" id="score-value">0</span>
+      </div>
+      <!-- NEW: NFT Balance Display -->
+      <div class="info-item">
+        <span class="info-label">NFT Balance:</span>
+        <span class="info-value" id="nft-balance">0</span>
+      </div>
+    </div>
+    
+    <!-- Location Section -->
+    <div class="sidebar-section">
+      <h3>📍 Location</h3>
+      <div id="location-display">Starting Area</div>
+    </div>
+    
+    <!-- NFTs Section - UPDATED -->
+    <div class="sidebar-section">
+      <h3>🖼️ NFTs</h3>
+      <div class="info-item">
+        <span class="info-label">Balance:</span>
+        <span class="info-value" id="nft-count">0</span>
+      </div>
+      <!-- NEW: NFT Transfer Button -->
+      <button id="transfer-nft-btn-sidebar" style="width: 100%; margin-top: 10px;">Transfer NFTs to Wallet</button>
+      <!-- NEW: NFT Purchase Button -->
+      <button id="purchase-nft-btn-sidebar" style="width: 100%; margin-top: 5px; background: #10b981;">Purchase NFT Cards</button>
+    </div>
+    
+    <!-- Buildings Section -->
+    <div class="sidebar-section">
+      <h3>🏢 Buildings</h3>
+      <div class="info-item">
+        <span class="info-label">Owned:</span>
+        <span class="info-value" id="owned-buildings-count">0</span>
+      </div>
+    </div>
+    
+    <!-- Players Section -->
+    <div class="sidebar-section">
+      <h3>👥 Players</h3>
+      <div class="info-item">
+        <span class="info-label">Online:</span>
+        <span class="info-value" id="player-count">1</span>
+      </div>
+      <div id="players-list">
+        <div class="player-item">
+          <div class="player-color" style="background-color: #3b82f6;"></div>
+          <div class="player-name">You</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Chat Section -->
+    <div class="sidebar-section">
+      <h3>💬 Chat</h3>
+      <div id="chat-container">
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+          <input type="text" id="chat-input" placeholder="Type a message...">
+          <button id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stats Section -->
+    <div class="sidebar-section">
+      <h3>📊 Stats</h3>
+      <div class="info-item">
+        <span class="info-label">Play Time:</span>
+        <span class="info-value" id="play-time">0m</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Distance Traveled:</span>
+        <span class="info-value" id="distance-traveled">0m</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mobile-controls">
+  <div class="mobile-btn" id="forward-btn">↑</div>
+  <div style="display:flex; gap:10px;">
+    <div class="mobile-btn" id="left-btn">←</div>
+    <div class="mobile-btn" id="backward-btn">↓</div>
+    <div class="mobile-btn" id="right-btn">→</div>
+  </div>
+  <div class="mobile-btn" id="shoot-btn" style="background: rgba(239, 68, 68, 0.7);">🔫</div>
+</div>
+
+<div id="look-controls"></div>
+
+<div id="mini-map"></div>
+
+<!-- NFT Modal -->
+<div id="nft-modal">
+  <button id="close-modal">X</button>
+  <img id="modal-image" src="" alt="NFT" />
+  <div class="nft-info">
+    <h3 id="modal-title"></h3>
+    <p id="modal-description"></p>
+    <p><strong>Price:</strong> <span id="modal-price"></span> ETH</p>
+    <div class="nft-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<!-- Bullet Purchase Modal - UPDATED -->
+<div id="bullet-modal">
+  <h3>Buy More Bullets</h3>
+  <p>You're out of bullets! Purchase more to continue playing.</p>
+  
+  <!-- NEW: NFT Bullet Purchase Option -->
+  <div class="bullet-option">
+    <div>
+      <strong>500 Bullets</strong><br>
+      <span>1 NFT Card</span>
+      <div class="nft-bullet-cost">Current NFT Balance: <span id="bullet-nft-balance">0</span></div>
+    </div>
+    <button id="buy-500-nft">Buy with NFT</button>
+  </div>
+  
+  <div class="bullet-option">
+    <div>
+      <strong>100 Bullets</strong><br>
+      <span>0.50 cents</span>
+    </div>
+    <button id="buy-100">Buy</button>
+  </div>
+  
+  <button id="close-bullet-modal" style="margin-top: 15px; width: 100%; background: #6b7280;">Cancel</button>
+</div>
+
+<!-- Building Purchase Modal - UPDATED -->
+<div id="building-modal">
+  <button id="close-building-modal" style="position: absolute; top: 10px; right: 10px; background: #ef4444; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">X</button>
+  
+  <h3>Building Ownership</h3>
+  
+  <div id="building-info" class="building-info">
+    <div><strong>Building ID:</strong> <span id="building-id">-</span></div>
+    <div><strong>Current Owner:</strong> <span id="building-owner">Unknown</span></div>
+    <div><strong>Current Price:</strong> <span id="building-price">250 NFTs</span></div>
+    <div><strong>Owner Name:</strong> <span id="building-owner-name">-</span></div>
+    
+    <!-- NEW: NFT Cost Display -->
+    <div class="nft-building-cost">
+      Purchase Cost: 250 NFT Cards
+    </div>
+    
+    <!-- NEW: NFT Balance Check -->
+    <div id="nft-balance-check" class="nft-balance-check">
+      Your NFT Balance: <span id="building-nft-balance">0</span>
+    </div>
+  </div>
+  
+  <div id="purchase-section">
+    <h4>Purchase This Building</h4>
+    <input type="text" id="owner-name-input" class="name-input" placeholder="Enter your display name for this building" maxlength="20">
+    <div class="building-actions">
+      <button id="purchase-building">Purchase for 250 NFTs</button>
+      <button id="purchase-nft-cards" style="background: #10b981;">Purchase NFT Cards</button>
+    </div>
+  </div>
+  
+  <div id="owner-section" style="display: none;">
+    <h4>Manage Your Building</h4>
+    <input type="text" id="new-owner-name" class="name-input" placeholder="Update building display name" maxlength="20">
+    <input type="number" id="new-price" class="price-input" placeholder="Set new sale price in NFTs" min="250">
+    <div class="building-actions">
+      <button id="update-building">Update Building Info</button>
+      <button id="sell-building" style="background: #10b981;">List for Sale</button>
+    </div>
+  </div>
+  
+  <div class="owned-buildings-list">
+    <h4>Your Buildings</h4>
+    <div id="owned-buildings-container"></div>
+  </div>
+</div>
+
+<!-- NEW: NFT Transfer Modal -->
+<div id="nft-transfer-modal">
+  <h3>Transfer NFTs to Wallet</h3>
+  <div class="nft-transfer-form">
+    <p>Transfer your NFT cards to your connected wallet address.</p>
+    
+    <div class="info-item">
+      <span class="info-label">Current Balance:</span>
+      <span class="info-value" id="transfer-nft-balance">0</span>
+    </div>
+    
+    <div class="info-item">
+      <span class="info-label">Wallet Address:</span>
+      <span class="info-value" id="transfer-wallet-address">Not connected</span>
+    </div>
+    
+    <label for="transfer-amount">Amount to Transfer:</label>
+    <input type="number" id="transfer-amount" class="nft-transfer-input" placeholder="Enter amount" min="1" max="0">
+    
+    <div class="nft-transfer-actions">
+      <button id="transfer-nft-confirm">Transfer</button>
+      <button id="close-transfer-modal" style="background: #6b7280;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW: NFT Purchase Modal -->
+<div id="nft-purchase-modal">
+  <h3>Purchase NFT Cards</h3>
+  
+  <div class="nft-cost-display">
+    <div class="cost">250 NFT Cards</div>
+    <div>Required for Building Purchase</div>
+  </div>
+  
+  <p>You need NFT cards to purchase buildings in the game. Each building costs 250 NFT cards.</p>
+  
+  <div class="bullet-option">
+    <div>
+      <strong>250 NFT Cards</strong><br>
+      <span>Purchase with ETH</span>
+    </div>
+    <button id="buy-250-nft">Purchase</button>
+  </div>
+  
+  <button id="close-nft-purchase-modal" style="margin-top: 15px; width: 100%; background: #6b7280;">Cancel</button>
+</div>
+
+<!-- Modal overlay to prevent interactions when sidebar is open -->
+<div class="modal-overlay"></div>
+
+<!-- Avatar Selection -->
+<div id="avatar-selection">
+  <h2>Choose Your Explorer</h2>
+  <div class="avatar-options">
+    <div class="avatar-option" id="boy-avatar" data-avatar="boy"></div>
+    <div class="avatar-option" id="girl-avatar" data-avatar="girl"></div>
+  </div>
+  <div style="margin-top: 20px;">
+    <input type="text" id="player-name" placeholder="Enter your display name" maxlength="15" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 200px;">
+  </div>
+  <button id="confirm-avatar">Start Exploring</button>
+</div>
+
+<script src = "jame.js"> </script>
+</body>
+</html>
