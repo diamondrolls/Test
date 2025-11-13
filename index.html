@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>93 Crypto - NFT Universe</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="https://diamondrolls.github.io/play/favicon.ico" />
+  
+  <!-- Three.js + Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/controls/PointerLockControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.8.0/dist/web3.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/walletconnect-provider@1.8.0/dist/umd/index.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      touch-action: none;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 1;
+    }
+    #instructions {
+      position: fixed;
+      top: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      padding: 15px 30px;
+      border-radius: 50px;
+      font-size: 18px;
+      z-index: 100;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+    #mini-map {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      width: 120px; height: 120px;
+      border: 3px solid #10b981;
+      border-radius: 15px;
+      overflow: hidden;
+      z-index: 50;
+      box-shadow: 0 0 20px rgba(16,185,129,0.5);
+    }
+    #location-display {
+      position: fixed;
+      bottom: 150px; right: 20px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 15px;
+      border-radius: 10px;
+      font-size: 14px;
+      z-index: 50;
+    }
+    #hud {
+      position: fixed;
+      top: 20px; left: 20px;
+      z-index: 100;
+      background: rgba(0,0,0,0.7);
+      padding: 15px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    .stat { margin: 8px 0; font-size: 16px; }
+    .value { color: #10b981; font-weight: bold; }
+
+    /* Sidebar */
+    #sidebar {
+      position: fixed;
+      top: 0; right: -400px;
+      width: 380px; height: 100vh;
+      background: rgba(15,23,42,0.95);
+      backdrop-filter: blur(20px);
+      transition: right 0.4s ease;
+      z-index: 200;
+      padding: 20px;
+      overflow-y: auto;
+      border-left: 1px solid #10b981;
+    }
+    #sidebar.open { right: 0; }
+    #toggle-sidebar {
+      position: fixed;
+      top: 20px; right: 20px;
+      background: #10b981;
+      color: white;
+      border: none;
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      font-size: 24px;
+      cursor: pointer;
+      z-index: 201;
+      box-shadow: 0 0 20px rgba(16,185,129,0.6);
+    }
+    #close-sidebar {
+      position: absolute;
+      top: 15px; right: 15px;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 28px;
+      cursor: pointer;
+    }
+    .sidebar-section {
+      margin: 25px 0;
+      padding: 15px;
+      background: rgba(30,41,59,0.5);
+      border-radius: 12px;
+      border: 1px solid #334155;
+    }
+    button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+    button:hover { background: #059669; }
+    button:disabled { background: #6b7280; cursor: not-allowed; }
+
+    /* Modals */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 300;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(10px);
+    }
+    .modal-content {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 500px;
+      border: 2px solid #10b981;
+      position: relative;
+    }
+    .close-modal {
+      position: absolute;
+      top: 15px; right: 20px;
+      font-size: 30px;
+      cursor: pointer;
+      color: #94a3b8;
+    }
+
+    /* Avatar Selection */
+    #avatar-selection {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 30px;
+      margin: 40px 0;
+    }
+    .avatar-option {
+      width: 150px; height: 150px;
+      background: #334155;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: 0.3s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 4px solid transparent;
+    }
+    .avatar-option.selected {
+      border-color: #10b981;
+      box-shadow: 0 0 30px rgba(16,185,129,0.5);
+    }
+    .avatar-option img {
+      width: 80px; height: 80px;
+      margin-bottom: 10px;
+    }
+
+    /* Mobile Controls */
+    #mobile-controls {
+      position: fixed;
+      bottom: 20px; left: 20px;
+      z-index: 150;
+      display: none;
+    }
+    .control-pad {
+      width: 120px; height: 120px;
+      background: rgba(255,255,255,0.1);
+      border: 3px solid #10b981;
+      border-radius: 50%;
+      margin: 10px;
+    }
+    .mobile-btn {
+      width: 70px; height: 70px;
+      background: #10b981;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px rgba(16,185,129,0.6);
+    }
+
+    /* NFT Prompt */
+    #nft-prompt {
+      position: fixed;
+      bottom: 180px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16,185,129,0.95);
+      padding: 15px 25px;
+      border-radius: 15px;
+      z-index: 100;
+      display: none;
+      backdrop-filter: blur(10px);
+      border: 2px solid #10b981;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #mobile-controls { display: block; }
+      #desktop-instructions { display: none; }
+      #mobile-instructions { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="stat">Health: <span id="health-value" class="value">50</span>/50</div>
+    <div class="stat">Bullets: <span id="bullet-count" class="value">100</span></div>
+    <div class="stat">Score: <span id="score-value" class="value">0</span></div>
+    <div class="stat">Tokens: <span id="token-balance" class="value">0</span></div>
+  </div>
+
+  <!-- Instructions -->
+  <div id="instructions">
+    <div id="desktop-instructions">
+      <strong>WASD</strong> = Move | <strong>Mouse</strong> = Look | <strong>Space</strong> = Shoot | <strong>B</strong> = Buy Bullets
+    </div>
+    <div id="mobile-instructions" style="display:none;">
+      Use left pad to move, right pad to look, buttons to shoot/jump
+    </div>
+  </div>
+
+  <!-- Mini Map -->
+  <div id="mini-map"></div>
+  <div id="location-display">Starting Area (Floating)</div>
+
+  <!-- Toggle Sidebar -->
+  <button id="toggle-sidebar">Menu</button>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <button id="close-sidebar">×</button>
+    <h2>Diamond Rolls</h2>
+    <p><strong>Player ID:</strong> <span id="player-id">Loading...</span></p>
+
+    <div class="sidebar-section">
+      <h3>Wallet</h3>
+      <button id="connectBtn">Connect Wallet</button>
+      <p id="walletStatus">Not connected</p>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Game Tokens</h3>
+      <button id="purchase-token-btn-sidebar">Buy 250 Tokens (0.1 ETH)</button>
+      <button id="transfer-token-btn-sidebar">Convert to NFT</button>
+      <p>Balance: <strong id="token-balance">0</strong></p>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Buildings Owned: <span id="owned-buildings-count">0</span></h3>
+      <div id="owned-buildings-container">
+        You don't own any buildings yet
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <button id="purchase-token-cards">View NFT Cards</button>
+    </div>
+  </div>
+
+  <!-- Avatar Selection -->
+  <div id="avatar-selection">
+    <h1 style="font-size: 48px; margin-bottom: 20px;">Choose Your Avatar</h1>
+    <input type="text" id="player-name" placeholder="Enter your name" style="padding:10px; font-size:18px; border-radius:10px; border:none; margin-bottom:20px; width:300px;" maxlength="20" />
+    
+    <div class="avatar-grid">
+      <div class="avatar-option" data-avatar="boy">
+        <img src="https://diamondrolls.github.io/play/boy.png" alt="Boy" />
+        <div>Boy</div>
+      </div>
+      <div class="avatar-option" data-avatar="girl">
+        <img src="https://diamondrolls.github.io/play/girl.png" alt="Girl" />
+        <div>Girl</div>
+      </div>
+    </div>
+
+    <button id="confirm-avatar" style="font-size:24px; padding:15px 40px;">Start Game</button>
+  </div>
+
+  <!-- Building Modal -->
+  <div id="building-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="close-building-modal">×</span>
+      <h2>Building <span id="building-id"></span></h2>
+      <p>Owner: <span id="building-owner">None</span></p>
+      <p>Display Name: <span id="building-owner-name">-</span></p>
+      <p>Price: <span id="building-price">250 Tokens</span></p>
+
+      <div id="purchase-section">
+        <div id="token-balance-check" class="token-balance-check sufficient">
+          Your Token Balance: <span id="building-token-balance">0</span> - <span style="color:#10b981;">Sufficient</span>
+        </div>
+        <button id="purchase-building">Purchase for 250 Tokens</button>
+        <input type="text" id="owner-name-input" placeholder="Your display name" maxlength="20" style="width:100%; padding:10px; margin-top:10px; border-radius:8px;" />
+      </div>
+
+      <div id="owner-section" style="display:none;">
+        <input type="text" id="new-owner-name" placeholder="Display name" style="width:100%; padding:10px; margin:10px 0; border-radius:8px;" />
+        <input type="number" id="new-price" placeholder="Sale price (tokens)" min="250" max="1000000" style="width:100%; padding:10px; margin:10px 0; border-radius:8px;" />
+        <button id="update-building">Update Info</button>
+        <button id="sell-building">Put For Sale</button>
+        <button id="cancel-sale" style="display:none; background:#ef4444;">Cancel Sale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bullet Modal -->
+  <div id="bullet-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="close-bullet-modal">×</span>
+      <h2>Buy Bullets</h2>
+      <p>Token Balance: <strong id="bullet-token-balance">0</strong></p>
+      <button id="buy-500-token">500 Bullets (1 Token)</button>
+      <button id="buy-100">100 Bullets (Free)</button>
+    </div>
+  </div>
+
+  <!-- Token Purchase Modal -->
+  <div id="token-purchase-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="close-token-purchase-modal">×</span>
+      <h2>Purchase Game Tokens</h2>
+      <p>250 Tokens = 0.1 ETH</p>
+      <button id="buy-250-token">Buy 250 Tokens</button>
+    </div>
+  </div>
+
+  <!-- Token Transfer Modal -->
+  <div id="token-transfer-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" id="close-transfer-modal">×</span>
+      <h2>Convert Tokens to NFTs</h2>
+      <p>Your Wallet: <span id="transfer-wallet-address">Not connected</span></p>
+      <p>1 Token = 1 Real NFT</p>
+      <input type="number" id="transfer-amount" placeholder="Amount" min="1" style="width:100%; padding:10px; margin:10px 0;" />
+      <button id="transfer-token-confirm">Convert to NFTs</button>
+    </div>
+  </div>
+
+  <!-- NFT Prompt -->
+  <div id="nft-prompt">
+    <div id="nft-info"></div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div style="display:flex; gap:20px;">
+      <div class="control-pad" id="move-pad"></div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div class="mobile-btn" id="shoot-btn">Fire</div>
+        <div class="mobile-btn" id="jump-btn">Jump</div>
+      </div>
+    </div>
+    <div class="control-pad" id="look-pad" style="margin-top:20px;"></div>
+  </div>
+
+  <!-- Full Game Script -->
+  <script src= "jame.js"> </script>
+</body>
+</html>
