@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NFT Shooter Universe</title>
+
+  <!-- Libraries - Updated to latest stable versions -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/controls/PointerLockControls.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --accent: #3b82f6;
+      --text: #e2e8f0;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #000;
+      color: white;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: none; /* Hidden until game starts */
+    }
+
+    /* HUD Elements - Hidden until game starts */
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+      display: none;
+    }
+    #health, #bullets, #score { margin: 4px 0; }
+
+    /* Wallet Button - Hidden until game starts */
+    #connect-wallet {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      z-index: 100;
+      cursor: pointer;
+      display: none;
+    }
+
+    /* Mobile Controls - Hidden until game starts */
+    #mobile-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px;
+      gap: 12px;
+      z-index: 100;
+      display: none;
+    }
+    .ctrl-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(59,130,246,0.8);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      user-select: none;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      touch-action: manipulation;
+    }
+    #shoot-btn { 
+      background: rgba(239,68,68,0.9); 
+      grid-column: 3;
+      grid-row: 1 / 3;
+      align-self: center;
+      font-size: 2rem;
+    }
+
+    /* Instructions - Always visible */
+    #instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      text-align: center;
+      z-index: 100;
+      max-width: 90%;
+    }
+
+    /* Mini-map - Hidden until game starts */
+    #mini-map {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 140px;
+      height: 140px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      z-index: 100;
+      display: none;
+    }
+
+    /* Home Button - Always visible */
+    .homepage {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 60px;
+      height: 60px;
+      background: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg') center/cover;
+      border-radius: 50%;
+      z-index: 200;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    /* Avatar Selection - Visible by default */
+    #avatar-selection {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 30px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #avatar-selection h2 {
+      font-size: 2.2rem;
+      color: #60a5fa;
+      text-align: center;
+    }
+    .avatar-options {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .avatar-option {
+      width: 180px;
+      height: 280px;
+      border: 4px solid transparent;
+      border-radius: 16px;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .avatar-option:hover { transform: scale(1.08); }
+    .avatar-option.selected { 
+      border-color: #60a5fa; 
+      box-shadow: 0 0 30px #3b82f6; 
+    }
+    #boy-avatar   { background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/431BBB65-C6F8-49BC-B882-EA5BBE885462.png'); }
+    #girl-avatar  { background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/3974D02C-0D5B-4F49-8597-5185D48FB2A1.png'); }
+
+    #player-name {
+      padding: 12px 20px;
+      width: 260px;
+      max-width: 90vw;
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      text-align: center;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    #player-name::placeholder { color: rgba(255,255,255,0.6); }
+
+    #confirm-avatar {
+      padding: 14px 40px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #confirm-avatar:hover { background: #2563eb; }
+    #confirm-avatar:disabled { background: #64748b; cursor: not-allowed; }
+
+    /* Error Display */
+    #error-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(239,68,68,0.9);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 10000;
+      display: none;
+      max-width: 80%;
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+      .avatar-options { gap: 20px; }
+      .avatar-option { width: 140px; height: 220px; }
+      #avatar-selection h2 { font-size: 1.8rem; }
+      #player-name { width: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Home Button -->
+  <a href="https://diamondrolls.github.io/thepremiumway/">
+    <div class="homepage"></div>
+  </a>
+
+  <!-- Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="health">Health: 50</div>
+    <div id="bullets">Bullets: 500</div>
+    <div id="score">Score: 0</div>
+  </div>
+
+  <!-- Wallet Connect -->
+  <button id="connect-wallet">Connect Wallet</button>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div class="ctrl-btn" id="forward-btn">↑</div>
+    <div class="ctrl-btn" id="left-btn">←</div>
+    <div class="ctrl-btn" id="backward-btn">↓</div>
+    <div class="ctrl-btn" id="right-btn">→</div>
+    <div class="ctrl-btn" id="shoot-btn">🔫</div>
+  </div>
+
+  <!-- Instructions -->
+  <div id="instructions">
+    <span id="desktop-instructions">WASD = Move • Mouse = Look • Click = Shoot</span>
+    <span id="mobile-instructions" style="display:none;">Use buttons to move • Drag to look • Tap to shoot</span>
+  </div>
+
+  <!-- Mini-map -->
+  <canvas id="mini-map"></canvas>
+
+  <!-- Error Display -->
+  <div id="error-message">
+    <h3>Oops! Something went wrong.</h3>
+    <p id="error-text">Check console for details.</p>
+    <button onclick="document.getElementById('error-message').style.display='none';">Close</button>
+  </div>
+
+  <!-- Avatar Selection Screen -->
+  <div id="avatar-selection">
+    <h2>Welcome to NFT Shooter Universe</h2>
+    <p style="color: #94a3b8; text-align: center; max-width: 400px;">Choose your avatar to enter the floating world of NFTs and epic battles!</p>
+    <div class="avatar-options">
+      <div class="avatar-option" id="boy-avatar" data-avatar="boy" title="Boy Explorer"></div>
+      <div class="avatar-option" id="girl-avatar" data-avatar="girl" title="Girl Explorer"></div>
+    </div>
+    <input type="text" id="player-name" placeholder="Enter your explorer name (optional)" maxlength="16">
+    <button id="confirm-avatar" disabled>Enter Universe</button>
+  </div>
+
+  <!-- Embedded Full Game Script - No external file needed -->
+  <script src="jame.js"></script>
+</body>
+</html>
