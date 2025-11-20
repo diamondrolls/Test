@@ -278,28 +278,6 @@
   <!-- Main Game Script -->
   <script src="jame.js"></script>
 
-  <script>
-    // Auto-detect mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      document.getElementById('mobile-controls').style.display = 'grid';
-      document.getElementById('desktop-instructions').style.display = 'none';
-      document.getElementById('mobile-instructions').style.display = 'block';
-    }
-
-    // Mobile control handlers
-    document.getElementById('forward-btn')?.addEventListener('touchstart', () => moveForward = true);
-    document.getElementById('forward-btn')?.addEventListener('touchend', () => moveForward = false);
-    document.getElementById('backward-btn')?.addEventListener('touchstart', () => moveBackward = true);
-    document.getElementById('backward-btn')?.addEventListener('touchend', () => moveBackward = false);
-    document.getElementById('left-btn')?.addEventListener('touchstart', () => moveLeft = true);
-    document.getElementById('left-btn')?.addEventListener('touchend', () => moveLeft = false);
-    document.getElementById('right-btn')?.addEventListener('touchstart', () => moveRight = true);
-    document.getElementById('right-btn')?.addEventListener('touchend', () => moveRight = false);
-    document.getElementById('shoot-btn')?.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      document.dispatchEvent(new Event('pointerdown'));
-    });
-  </script>
+  
 </body>
 </html>
