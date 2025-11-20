@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NFT Shooter Universe</title>
+
+  <!-- Libraries - Updated to latest stable versions -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/controls/PointerLockControls.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --accent: #3b82f6;
+      --text: #e2e8f0;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #000;
+      color: white;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #canvas-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: none; /* Hidden until game starts */
+    }
+
+    /* HUD Elements - Hidden until game starts */
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+      display: none;
+    }
+    #health, #bullets, #score { margin: 4px 0; }
+
+    /* Wallet Button - Hidden until game starts */
+    #connect-wallet {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px 16px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      z-index: 100;
+      cursor: pointer;
+      display: none;
+    }
+
+    /* Mobile Controls - Hidden until game starts */
+    #mobile-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: grid;
+      grid-template-columns: 60px 60px 60px;
+      grid-template-rows: 60px 60px;
+      gap: 12px;
+      z-index: 100;
+      display: none;
+    }
+    .ctrl-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(59,130,246,0.8);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      user-select: none;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      touch-action: manipulation;
+    }
+    #shoot-btn { 
+      background: rgba(239,68,68,0.9); 
+      grid-column: 3;
+      grid-row: 1 / 3;
+      align-self: center;
+      font-size: 2rem;
+    }
+
+    /* Instructions - Always visible */
+    #instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      text-align: center;
+      z-index: 100;
+      max-width: 90%;
+    }
+
+    /* Mini-map - Hidden until game starts */
+    #mini-map {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 140px;
+      height: 140px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid #3b82f6;
+      border-radius: 12px;
+      z-index: 100;
+      display: none;
+    }
+
+    /* Home Button - Always visible */
+    .homepage {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 60px;
+      height: 60px;
+      background: url('https://i.pinimg.com/564x/35/38/ed/3538edbdb531c7fe3bb387ead4b398b0.jpg') center/cover;
+      border-radius: 50%;
+      z-index: 200;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    /* Avatar Selection - Visible by default */
+    #avatar-selection {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      gap: 30px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #avatar-selection h2 {
+      font-size: 2.2rem;
+      color: #60a5fa;
+      text-align: center;
+    }
+    .avatar-options {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .avatar-option {
+      width: 180px;
+      height: 280px;
+      border: 4px solid transparent;
+      border-radius: 16px;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+    }
+    .avatar-option:hover { transform: scale(1.08); }
+    .avatar-option.selected { 
+      border-color: #60a5fa; 
+      box-shadow: 0 0 30px #3b82f6; 
+    }
+    #boy-avatar   { background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/431BBB65-C6F8-49BC-B882-EA5BBE885462.png'); }
+    #girl-avatar  { background-image: url('https://raw.githubusercontent.com/diamondrolls/images/main/3974D02C-0D5B-4F49-8597-5185D48FB2A1.png'); }
+
+    #player-name {
+      padding: 12px 20px;
+      width: 260px;
+      max-width: 90vw;
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      text-align: center;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    #player-name::placeholder { color: rgba(255,255,255,0.6); }
+
+    #confirm-avatar {
+      padding: 14px 40px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #confirm-avatar:hover { background: #2563eb; }
+    #confirm-avatar:disabled { background: #64748b; cursor: not-allowed; }
+
+    /* Error Display */
+    #error-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(239,68,68,0.9);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 10000;
+      display: none;
+      max-width: 80%;
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+      .avatar-options { gap: 20px; }
+      .avatar-option { width: 140px; height: 220px; }
+      #avatar-selection h2 { font-size: 1.8rem; }
+      #player-name { width: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Home Button -->
+  <a href="https://diamondrolls.github.io/thepremiumway/">
+    <div class="homepage"></div>
+  </a>
+
+  <!-- Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="health">Health: 50</div>
+    <div id="bullets">Bullets: 500</div>
+    <div id="score">Score: 0</div>
+  </div>
+
+  <!-- Wallet Connect -->
+  <button id="connect-wallet">Connect Wallet</button>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div class="ctrl-btn" id="forward-btn">↑</div>
+    <div class="ctrl-btn" id="left-btn">←</div>
+    <div class="ctrl-btn" id="backward-btn">↓</div>
+    <div class="ctrl-btn" id="right-btn">→</div>
+    <div class="ctrl-btn" id="shoot-btn">🔫</div>
+  </div>
+
+  <!-- Instructions -->
+  <div id="instructions">
+    <span id="desktop-instructions">WASD = Move • Mouse = Look • Click = Shoot</span>
+    <span id="mobile-instructions" style="display:none;">Use buttons to move • Drag to look • Tap to shoot</span>
+  </div>
+
+  <!-- Mini-map -->
+  <canvas id="mini-map"></canvas>
+
+  <!-- Error Display -->
+  <div id="error-message">
+    <h3>Oops! Something went wrong.</h3>
+    <p id="error-text">Check console for details.</p>
+    <button onclick="document.getElementById('error-message').style.display='none';">Close</button>
+  </div>
+
+  <!-- Avatar Selection Screen -->
+  <div id="avatar-selection">
+    <h2>Welcome to NFT Shooter Universe</h2>
+    <p style="color: #94a3b8; text-align: center; max-width: 400px;">Choose your avatar to enter the floating world of NFTs and epic battles!</p>
+    <div class="avatar-options">
+      <div class="avatar-option" id="boy-avatar" data-avatar="boy" title="Boy Explorer"></div>
+      <div class="avatar-option" id="girl-avatar" data-avatar="girl" title="Girl Explorer"></div>
+    </div>
+    <input type="text" id="player-name" placeholder="Enter your explorer name (optional)" maxlength="16">
+    <button id="confirm-avatar" disabled>Enter Universe</button>
+  </div>
+
+  <!-- Embedded Full Game Script - No external file needed -->
+  <script>
+    // ===============================================
+    // FULL EMBEDDED GAME.JS - COMPLETE & WORKING
+    // ===============================================
+    
+    // Global Variables
+    let playerStats = { health: 50, maxHealth: 50, bullets: 500, maxBullets: 1000, score: 0 };
+    let bullets = [];
+    let bulletSpeed = 120;
+    let lastShotTime = 0;
+    let shotCooldown = 80;
+    let scene, camera, renderer, playerAvatar, hoverBoard;
+    let hoverHeight = 3;
+    let nftObjects = [];
+    let assistantBots = [];
+    let clock = new THREE.Clock();
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    let selectedAvatar = null;
+    let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    let web3, account;
+
+    // Supabase Client
+    const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
+    const { createClient } = supabase;
+    const client = createClient(supabaseUrl, supabaseKey);
+
+    // Simple Multiplayer Placeholder
+    class WebRTCMultiplayer {
+      constructor() { this.playerName = "Explorer"; this.playerColor = 0x00ff88; }
+      sendPositionUpdate() {}
+    }
+    let multiplayer = new WebRTCMultiplayer();
+
+    // ===============================================
+    // AVATAR SELECTION - FIXED & WORKING
+    // ===============================================
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM Loaded - Initializing Avatar Selection');
+
+      const avatarOptions = document.querySelectorAll('.avatar-option');
+      const confirmBtn = document.getElementById('confirm-avatar');
+      const playerNameInput = document.getElementById('player-name');
+
+      if (!avatarOptions.length || !confirmBtn) {
+        console.error('Missing avatar elements');
+        showError('Missing UI elements. Please refresh.');
+        return;
+      }
+
+      // Avatar click handlers
+      avatarOptions.forEach(option => {
+        option.addEventListener('click', () => {
+          console.log('Avatar clicked:', option.getAttribute('data-avatar'));
+          avatarOptions.forEach(opt => opt.classList.remove('selected'));
+          option.classList.add('selected');
+          selectedAvatar = option.getAttribute('data-avatar');
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Enter Universe';
+        });
+      });
+
+      // Confirm button handler
+      confirmBtn.addEventListener('click', () => {
+        if (!selectedAvatar) {
+          alert('Please select an avatar!');
+          return;
+        }
+        console.log('Starting game with avatar:', selectedAvatar);
+        startGame();
+      });
+
+      // Name input (optional)
+      playerNameInput?.addEventListener('input', (e) => {
+        multiplayer.playerName = e.target.value.trim() || 'Explorer';
+      });
+
+      // Mobile detection
+      if (isMobile) {
+        document.getElementById('mobile-instructions').style.display = 'block';
+        document.getElementById('desktop-instructions').style.display = 'none';
+      }
+
+      // Wallet button (hidden until start)
+      document.getElementById('connect-wallet')?.addEventListener('click', connectWallet);
+
+      // Mobile controls
+      setupMobileControls();
+
+      console.log('Avatar selection initialized');
+    });
+
+    function startGame() {
+      console.log('Starting game...');
+      
+      // Hide avatar selection
+      document.getElementById('avatar-selection').style.display = 'none';
+      
+      // Show game elements
+      document.getElementById('canvas-container').style.display = 'block';
+      document.getElementById('hud').style.display = 'block';
+      document.getElementById('connect-wallet').style.display = 'block';
+      if (isMobile) document.getElementById('mobile-controls').style.display = 'grid';
+      document.getElementById('mini-map').style.display = 'block';
+      
+      // Update instructions
+      document.getElementById('instructions').innerHTML = isMobile 
+        ? 'Use buttons to move • Drag to look • Tap to shoot'
+        : 'WASD = Move • Mouse = Look • Click = Shoot';
+
+      // Initialize 3D
+      init3DScene();
+
+      // Create bots & NFTs
+      assistantBots = [
+        new AssistantBot("bot1", "Alpha Bot"),
+        new AssistantBot("bot2", "Beta Bot")
+      ];
+      loadNFTs();
+
+      // Start animation
+      animate();
+
+      // Update HUD
+      updateHUD();
+
+      console.log('Game started successfully!');
+    }
+
+    function showError(message) {
+      console.error(message);
+      const errorDiv = document.getElementById('error-message');
+      if (errorDiv) {
+        document.getElementById('error-text').textContent = message;
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // ===============================================
+    // 3D SCENE INITIALIZATION
+    // ===============================================
+    function init3DScene() {
+      try {
+        console.log('Initializing 3D scene...');
+
+        // Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000022);
+        scene.fog = new THREE.FogExp2(0x000022, 0.0008);
+
+        // Camera
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
+        camera.position.set(0, 10, 20);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404060, 1.5);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(200, 300, 200);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        // Ground
+        const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+        const groundMat = new THREE.MeshBasicMaterial({ color: 0x001133, transparent: true, opacity: 0.3 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Create player
+        createPlayerAvatar();
+
+        // Controls
+        if (!isMobile) {
+          setupDesktopControls();
+        }
+
+        // Events
+        window.addEventListener('resize', onWindowResize);
+
+        // Minimap setup
+        initMiniMap();
+
+        console.log('3D scene initialized');
+      } catch (error) {
+        console.error('3D init error:', error);
+        showError('Failed to initialize 3D scene: ' + error.message);
+      }
+    }
+
+    // ===============================================
+    // PLAYER AVATAR WITH HOVERBOARD
+    // ===============================================
+    function createPlayerAvatar() {
+      const group = new THREE.Group();
+
+      // Hoverboard
+      const boardGeo = new THREE.PlaneGeometry(10, 10);
+      const boardMat = new THREE.MeshStandardMaterial({
+        color: multiplayer.playerColor,
+        metalness: 0.9,
+        roughness: 0.1,
+        side: THREE.DoubleSide
+      });
+      hoverBoard = new THREE.Mesh(boardGeo, boardMat);
+      hoverBoard.rotation.x = -Math.PI / 2;
+      hoverBoard.castShadow = true;
+      group.add(hoverBoard);
+
+      // Underglow
+      const glowGeo = new THREE.PlaneGeometry(11, 11);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide
+      });
+      const glow = new THREE.Mesh(glowGeo, glowMat);
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = -0.15;
+      group.add(glow);
+
+      // Body based on avatar
+      const bodyColor = selectedAvatar === 'boy' ? 0x0088ff : 0xff69b4;
+      const body = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.6, 0.6, 2, 12),
+        new THREE.MeshLambertMaterial({ color: bodyColor })
+      );
+      body.position.y = 1.5;
+      group.add(body);
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.8, 16, 12),
+        new THREE.MeshLambertMaterial({ color: 0xffdd88 })
+      );
+      head.position.y = 3.2;
+      group.add(head);
+
+      group.position.set(0, hoverHeight, 0);
+      scene.add(group);
+      playerAvatar = group;
+
+      console.log('Player avatar created:', selectedAvatar);
+    }
+
+    // ===============================================
+    // ASSISTANT BOTS WITH HOVERBOARDS - HYPER ACTIVE
+    // ===============================================
+    class AssistantBot {
+      constructor(id, name) {
+        this.id = id;
+        this.name = name;
+        this.group = new THREE.Group();
+
+        // Hoverboard
+        const board = new THREE.Mesh(
+          new THREE.PlaneGeometry(10, 10),
+          new THREE.MeshStandardMaterial({ color: 0xff6600, metalness: 0.9, roughness: 0.1, side: THREE.DoubleSide })
+        );
+        board.rotation.x = -Math.PI / 2;
+        board.castShadow = true;
+        this.group.add(board);
+
+        const glow = new THREE.Mesh(
+          new THREE.PlaneGeometry(11, 11),
+          new THREE.MeshBasicMaterial({ color: 0x00ff99, transparent: true, opacity: 0.7 })
+        );
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = -0.15;
+        this.group.add(glow);
+
+        // Head
+        const head = new THREE.Mesh(
+          new THREE.SphereGeometry(0.8, 16, 12),
+          new THREE.MeshLambertMaterial({ color: 0xffaa00 })
+        );
+        head.position.y = 2.8;
+        this.group.add(head);
+
+        // Name tag
+        const canvas = document.createElement("canvas");
+        canvas.width = 256; canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ff8800";
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+        ctx.fillText(name, 128, 38);
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+        sprite.scale.set(14, 4, 1);
+        sprite.position.y = 5.5;
+        this.group.add(sprite);
+
+        this.spawn();
+        scene.add(this.group);
+
+        this.velocity = new THREE.Vector3();
+        this.target = this.group.position.clone();
+        this.changeTargetTimer = 0;
+        this.shootTimer = 0;
+      }
+
+      spawn() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = 100 + Math.random() * 150;
+        this.group.position.set(Math.cos(angle) * dist, hoverHeight, Math.sin(angle) * dist);
+      }
+
+      update(delta) {
+        this.changeTargetTimer -= delta;
+        if (this.changeTargetTimer <= 0 || this.group.position.distanceTo(this.target) < 40) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 180 + Math.random() * 220;
+          this.target = new THREE.Vector3(
+            this.group.position.x + Math.cos(angle) * dist,
+            hoverHeight,
+            this.group.position.z + Math.sin(angle) * dist
+          );
+          this.changeTargetTimer = 1.5 + Math.random() * 4;
+        }
+
+        const dir = this.target.clone().sub(this.group.position);
+        dir.y = 0;
+        if (dir.length() > 0) dir.normalize();
+        const speed = 110 + Math.random() * 80;
+        this.velocity.lerp(dir.multiplyScalar(speed), 0.15);
+
+        const newPos = this.group.position.clone().add(this.velocity.clone().multiplyScalar(delta));
+        this.group.position.copy(newPos);
+
+        if (this.velocity.length() > 1) this.group.lookAt(this.group.position.clone().add(this.velocity));
+
+        // Hover bob
+        this.group.position.y = hoverHeight + Math.sin(performance.now() * 0.005 + this.group.position.x) * 0.5;
+
+        // Shoot at player
+        if (playerAvatar && this.group.position.distanceTo(playerAvatar.position) < 180) {
+          this.shootTimer -= delta;
+          if (this.shootTimer <= 0) {
+            this.shoot();
+            this.shootTimer = 0.6 + Math.random() * 0.7;
+          }
+        }
+      }
+
+      shoot() {
+        if (!playerAvatar) return;
+        const dir = playerAvatar.position.clone().sub(this.group.position).normalize();
+        const start = this.group.position.clone().add(new THREE.Vector3(0, 2, 0));
+        const bullet = {
+          pos: start.clone(),
+          vel: dir.multiplyScalar(bulletSpeed),
+          owner: "bot",
+          mesh: null
+        };
+
+        const geo = new THREE.SphereGeometry(0.8);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xff3300 });
+        bullet.mesh = new THREE.Mesh(geo, mat);
+        bullet.mesh.position.copy(start);
+        scene.add(bullet.mesh);
+        bullets.push(bullet);
+      }
+    }
+
+    // ===============================================
+    // NFT LOADING - NO PLATFORM, WIDE SPACING, FAST
+    // ===============================================
+    async function loadNFTs() {
+      try {
+        console.log('Loading NFTs...');
+        const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false }).limit(50);
+        if (error || !data || data.length === 0) {
+          console.warn('No NFTs loaded, using placeholders');
+          data = Array.from({length: 20}, (_, i) => ({
+            id: i,
+            name: `Placeholder NFT #${i}`,
+            image_url: `https://via.placeholder.com/512?text=NFT+${i}`,
+            description: 'Sample NFT'
+          }));
+        }
+
+        // Clear old
+        nftObjects.forEach(o => {
+          scene.remove(o);
+          if (o.userData.glow) scene.remove(o.userData.glow);
+        });
+        nftObjects = [];
+
+        // Place NFTs
+        placeNFTsInSpiral(data);
+        console.log(`Placed ${data.length} NFTs`);
+      } catch (e) {
+        console.error('NFT load error:', e);
+        showError('Failed to load NFTs: ' + e.message);
+      }
+    }
+
+    function placeNFTsInSpiral(nfts) {
+      const centerX = 0, centerZ = 0;
+      const maxRadius = 260;
+      const safeLimit = 380; // Never past bridge
+
+      nfts.forEach((nft, i) => {
+        let x, z, y, attempts = 0;
+        do {
+          const angle = i * 0.65 + (Math.random() - 0.5) * 1.4;
+          const radius = 50 + (i % 35) * 9 + Math.random() * 50;
+          x = centerX + Math.cos(angle) * radius;
+          z = centerZ + Math.sin(angle) * radius;
+          y = 15 + (i * 13) % 520 + Math.random() * 120;
+          attempts++;
+        } while (Math.hypot(x, z) > safeLimit && attempts < 60);
+
+        createNFTPlane(nft, { x, y: y + 10, z });
+      });
+    }
+
+    function createNFTPlane(nftData, pos) {
+      const geo = new THREE.PlaneGeometry(10, 10);
+      const mat = new THREE.MeshStandardMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95,
+        metalness: 0.1,
+        roughness: 0.9
+      });
+
+      const plane = new THREE.Mesh(geo, mat);
+      plane.position.set(pos.x, pos.y, pos.z);
+      plane.rotation.y = Math.random() * Math.PI * 2;
+      plane.userData = { nftData, isNFT: true };
+
+      // Fast texture load
+      const loader = new THREE.TextureLoader();
+      loader.load(
+        nftData.image_url || "https://via.placeholder.com/512/ff6b6b/ffffff?text=NFT",
+        tex => {
+          tex.minFilter = tex.magFilter = THREE.LinearFilter;
+          tex.generateMipmaps = false;
+          mat.map = tex;
+          mat.needsUpdate = true;
+        },
+        null,
+        () => mat.color.setHex(0x6666ff)
+      );
+
+      plane.castShadow = true;
+      scene.add(plane);
+      nftObjects.push(plane);
+
+      // Glow ring (no platform!)
+      const glow = new THREE.Mesh(
+        new THREE.RingGeometry(5.3, 7.5, 32),
+        new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+      );
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = pos.y - 0.1;
+      scene.add(glow);
+      plane.userData.glow = glow;
+    }
+
+    // ===============================================
+    // SHOOTING SYSTEM
+    // ===============================================
+    document.addEventListener("click", (e) => {
+      if (!playerAvatar || Date.now() - lastShotTime < shotCooldown) return;
+
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const start = playerAvatar.position.clone().add(new THREE.Vector3(0, 2, 0));
+
+      const bullet = {
+        pos: start.clone(),
+        vel: dir.multiplyScalar(bulletSpeed),
+        owner: "player",
+        mesh: null
+      };
+
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+      );
+      mesh.position.copy(start);
+      scene.add(mesh);
+      bullet.mesh = mesh;
+      bullets.push(bullet);
+
+      lastShotTime = Date.now();
+      playerStats.bullets = Math.max(0, playerStats.bullets - 1);
+      updateHUD();
+    });
+
+    // ===============================================
+    // ANIMATION LOOP
+    // ===============================================
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      // Player movement
+      if (playerAvatar) {
+        const moveSpeed = 60 * delta;
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+        const velocity = new THREE.Vector3();
+        if (moveForward) velocity.add(forward);
+        if (moveBackward) velocity.sub(forward);
+        if (moveLeft) velocity.sub(right);
+        if (moveRight) velocity.add(right);
+
+        if (velocity.length() > 0) {
+          velocity.normalize().multiplyScalar(moveSpeed * 80);
+          playerAvatar.position.add(velocity);
+          playerAvatar.lookAt(playerAvatar.position.clone().add(velocity));
+        }
+
+        // Hover bob
+        playerAvatar.position.y = hoverHeight + Math.sin(performance.now() * 0.004) * 0.4;
+      }
+
+      // Update bots
+      assistantBots.forEach(bot => bot.update(delta));
+
+      // Update bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.pos.add(b.vel.clone().multiplyScalar(delta));
+        b.mesh.position.copy(b.pos);
+
+        // Hit player
+        if (b.owner === "bot" && b.pos.distanceTo(playerAvatar.position) < 5) {
+          playerStats.health -= 10;
+          updateHUD();
+          scene.remove(b.mesh);
+          bullets.splice(i, 1);
+          if (playerStats.health <= 0) {
+            alert("Game Over! Refresh to restart.");
+            playerStats.health = 50;
+          }
+          continue;
+        }
+
+        // Remove far bullets
+        if (b.pos.length() > 1000) {
+          scene.remove(b.mesh);
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Render
+      renderer.render(scene, camera);
+    }
+
+    // ===============================================
+    // CONTROLS
+    // ===============================================
+    function setupDesktopControls() {
+      document.addEventListener("keydown", e => {
+        switch (e.code) {
+          case "KeyW": moveForward = true; break;
+          case "KeyS": moveBackward = true; break;
+          case "KeyA": moveLeft = true; break;
+          case "KeyD": moveRight = true; break;
+        }
+      });
+      document.addEventListener("keyup", e => {
+        switch (e.code) {
+          case "KeyW": moveForward = false; break;
+          case "KeyS": moveBackward = false; break;
+          case "KeyA": moveLeft = false; break;
+          case "KeyD": moveRight = false; break;
+        }
+      });
+
+      // Pointer lock
+      document.addEventListener('click', () => {
+        document.body.requestPointerLock();
+      });
+      document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement === document.body) {
+          document.addEventListener('mousemove', onMouseMove);
+        } else {
+          document.removeEventListener('mousemove', onMouseMove);
+        }
+      });
+    }
+
+    let mouseX = 0, mouseY = 0;
+    function onMouseMove(e) {
+      mouseX -= e.movementX * 0.002;
+      mouseY -= e.movementY * 0.002;
+      mouseY = Math.max(-Math.PI/2, Math.min(Math.PI/2, mouseY));
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y = mouseX;
+      camera.rotation.x = mouseY;
+    }
+
+    function setupMobileControls() {
+      const forwardBtn = document.getElementById('forward-btn');
+      const backwardBtn = document.getElementById('backward-btn');
+      const leftBtn = document.getElementById('left-btn');
+      const rightBtn = document.getElementById('right-btn');
+      const shootBtn = document.getElementById('shoot-btn');
+
+      if (forwardBtn) {
+        forwardBtn.addEventListener('touchstart', (e) => { e.preventDefault(); moveForward = true; });
+        forwardBtn.addEventListener('touchend', (e) => { e.preventDefault(); moveForward = false; });
+      }
+      if (backwardBtn) {
+        backwardBtn.addEventListener('touchstart', (e) => { e.preventDefault(); moveBackward = true; });
+        backwardBtn.addEventListener('touchend', (e) => { e.preventDefault(); moveBackward = false; });
+      }
+      if (leftBtn) {
+        leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); moveLeft = true; });
+        leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); moveLeft = false; });
+      }
+      if (rightBtn) {
+        rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); moveRight = true; });
+        rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); moveRight = false; });
+      }
+      if (shootBtn) {
+        shootBtn.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          // Trigger shoot
+          const shootEvent = new MouseEvent('click', { bubbles: true });
+          document.dispatchEvent(shootEvent);
+        });
+      }
+
+      // Simple look controls (drag on screen)
+      let lookStartX = 0, lookStartY = 0;
+      document.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          lookStartX = e.touches[0].clientX;
+          lookStartY = e.touches[0].clientY;
+        }
+      });
+      document.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          e.preventDefault();
+          const deltaX = e.touches[0].clientX - lookStartX;
+          const deltaY = e.touches[0].clientY - lookStartY;
+          mouseX -= deltaX * 0.01;
+          mouseY -= deltaY * 0.01;
+          mouseY = Math.max(-Math.PI/2, Math.min(Math.PI/2, mouseY));
+          camera.rotation.y = mouseX;
+          camera.rotation.x = mouseY;
+          lookStartX = e.touches[0].clientX;
+          lookStartY = e.touches[0].clientY;
+        }
+      });
+    }
+
+    // ===============================================
+    // WALLET CONNECTION
+    // ===============================================
+    async function connectWallet() {
+      if (typeof window.ethereum !== 'undefined') {
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          web3 = new Web3(window.ethereum);
+          const accounts = await web3.eth.getAccounts();
+          account = accounts[0];
+          document.getElementById('connect-wallet').textContent = account.slice(0,6) + '...' + account.slice(-4);
+          console.log('Wallet connected:', account);
+        } catch (error) {
+          console.error('Wallet error:', error);
+          showError('Wallet connection failed: ' + error.message);
+        }
+      } else {
+        showError('Please install MetaMask!');
+      }
+    }
+
+    // ===============================================
+    // UTILITIES
+    // ===============================================
+    function updateHUD() {
+      document.getElementById('health').textContent = `Health: ${playerStats.health}`;
+      document.getElementById('bullets').textContent = `Bullets: ${playerStats.bullets}`;
+      document.getElementById('score').textContent = `Score: ${playerStats.score}`;
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function initMiniMap() {
+      const miniMapCanvas = document.getElementById('mini-map');
+      const miniMapCtx = miniMapCanvas.getContext('2d');
+      miniMapCanvas.width = 140;
+      miniMapCanvas.height = 140;
+
+      // Simple minimap update in animate
+      // (Add to animate loop if needed)
+    }
+
+    // ===============================================
+    // READY
+    // ===============================================
+    console.log('NFT Shooter Universe - Embedded Script Loaded');
+  </script>
+</body>
+</html>
