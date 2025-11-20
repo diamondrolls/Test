@@ -118,21 +118,21 @@ let activeLoads = 0;
 ============================== */
 
 class AssistantBot {
-  constructor(scene, multiplayer) {
+  constructor(scene, multiplayer, config = {}) {
     this.scene = scene;
     this.multiplayer = multiplayer;
     this.botId = 'assistant-bot-' + Date.now();
     this.group = null;
     this.targetPosition = new THREE.Vector3();
     this.currentPosition = new THREE.Vector3();
-    this.moveSpeed = 2.0;
-    this.roamRadius = 300;
+    this.moveSpeed = config.moveSpeed || 3.0;
+    this.roamRadius = config.roamRadius || worldBoundary * 0.8;
     this.roamCenter = new THREE.Vector3(0, 3, 0);
-    this.state = 'roaming'; // roaming, chasing, interacting
+    this.state = 'roaming';
     this.lastStateChange = 0;
-    this.stateDuration = 5000; // 5 seconds per state
-    this.detectionRange = 50;
-    this.interactionRange = 15;
+    this.stateDuration = config.stateDuration || 5000;
+    this.detectionRange = config.detectionRange || 80;
+    this.interactionRange = config.interactionRange || 20;
     
     this.init();
   }
@@ -229,9 +229,13 @@ class AssistantBot {
     
     this.targetPosition.set(
       Math.cos(angle) * distance,
-      10 + Math.random() * 30, // Vary height
+      10 + Math.random() * 50, // Increased height variation
       Math.sin(angle) * distance
     );
+    
+    // Ensure target is within world boundaries
+    this.targetPosition.x = Math.max(-worldBoundary + 20, Math.min(worldBoundary - 20, this.targetPosition.x));
+    this.targetPosition.z = Math.max(-worldBoundary + 20, Math.min(worldBoundary - 20, this.targetPosition.z));
   }
 
   startRoaming() {
@@ -380,11 +384,18 @@ class AssistantBot {
 ============================== */
 
 class BotManager {
-  constructor(scene, multiplayer) {
+  constructor(scene, multiplayer, config = {}) {
     this.scene = scene;
     this.multiplayer = multiplayer;
+    this.maxBots = config.maxBots || 5;
+    this.botConfig = {
+      roamRadius: config.roamRadius || worldBoundary * 0.8,
+      moveSpeed: config.moveSpeed || 3.0,
+      detectionRange: config.detectionRange || 80,
+      interactionRange: config.interactionRange || 20,
+      stateDuration: config.stateDuration || 5000
+    };
     this.bots = new Map();
-    this.maxBots = 3; // Number of assistant bots
     
     this.init();
   }
@@ -405,7 +416,7 @@ class BotManager {
   }
 
   spawnBot() {
-    const bot = new AssistantBot(this.scene, this.multiplayer);
+    const bot = new AssistantBot(this.scene, this.multiplayer, this.botConfig);
     this.bots.set(bot.botId, bot);
     
     console.log(`Spawned assistant bot: ${bot.botId}`);
@@ -501,8 +512,15 @@ function startGame() {
   
   init3DScene();
   
-  // Initialize bot manager after scene is created
-  botManager = new BotManager(scene, multiplayer);
+  // Initialize bot manager with expanded roaming
+  botManager = new BotManager(scene, multiplayer, {
+    maxBots: 8, // More bots for larger area
+    roamRadius: worldBoundary * 0.9, // Almost entire world
+    moveSpeed: 4.0, // Faster movement
+    detectionRange: 100, // Can detect players from farther
+    interactionRange: 25, // Larger interaction radius
+    stateDuration: 8000 // Longer states for more exploration
+  });
   
   loadNFTs();
   initTokenSystem();
