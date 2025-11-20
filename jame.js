@@ -2929,7 +2929,7 @@ function setupMobileControls() {
     }
   });
 }
-
+      
 /* ==============================
    CHAT SYSTEM
 ============================== */
@@ -2992,7 +2992,7 @@ function removeChatMessage(playerId) {
 }
 
 /* ==============================
-   MULTIPLAYER SYSTEM
+   MULTIPLAYER SYSTEM - UPDATED CHAT HANDLING
 ============================== */
 
 class WebRTCMultiplayer {
@@ -3450,6 +3450,8 @@ class WebRTCMultiplayer {
       chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
           this.sendChatMessage();
+          // Close sidebar and reset camera when Enter is pressed
+          this.closeChatInterface();
         }
       });
 
@@ -3487,6 +3489,30 @@ class WebRTCMultiplayer {
       this.addChatMessage(this.playerName, message, true);
       createChatMessageBubble(this.playerId, this.playerName, message, true);
       chatInput.value = '';
+    }
+  }
+
+  closeChatInterface() {
+    // Close sidebar
+    const sidebar = document.getElementById('sidebar');
+    const modalOverlay = document.querySelector('.modal-overlay');
+    
+    sidebar.classList.remove('active');
+    canMove = true;
+    modalOverlay.classList.remove('active');
+    
+    // Reset camera angle to current player direction
+    if (playerAvatar) {
+      targetCameraAngle = playerAvatar.rotation.y - Math.PI;
+    }
+    
+    // Re-lock controls if they were locked before
+    if (controls && !isMobile) {
+      setTimeout(() => {
+        if (canMove && !controls.isLocked) {
+          controls.lock();
+        }
+      }, 100);
     }
   }
 
