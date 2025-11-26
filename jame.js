@@ -2305,9 +2305,9 @@ function createCity() {
 function createUpperPlatform() {
   const upperGroundGeometry = new THREE.PlaneGeometry(500, 500);
   const upperGroundMaterial = new THREE.MeshPhysicalMaterial({
-  color: 0x88ffaa,
+  color: 0x88ffaa, 
   transparent: true,
-  opacity: 0.35,
+  opacity: 0.55,
   transmission: 0.9,      // makes it actually refract light (very cool)
   roughness: 0,
   metalness: 0,
