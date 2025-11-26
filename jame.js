@@ -2305,9 +2305,12 @@ function createCity() {
 function createUpperPlatform() {
   const upperGroundGeometry = new THREE.PlaneGeometry(500, 500);
   const upperGroundMaterial = new THREE.MeshLambertMaterial({ 
-    color: 0x4ADE80,
-    side: THREE.DoubleSide
-  });
+  color: 0x4ADE80,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0.6,
+  depthWrite: false
+});
   const upperGround = new THREE.Mesh(upperGroundGeometry, upperGroundMaterial);
   upperGround.rotation.x = -Math.PI / 2;
   upperGround.position.set(50, 750, 0);
