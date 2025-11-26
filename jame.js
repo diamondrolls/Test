@@ -2304,11 +2304,16 @@ function createCity() {
 
 function createUpperPlatform() {
   const upperGroundGeometry = new THREE.PlaneGeometry(500, 500);
-  const upperGroundMaterial = new THREE.MeshLambertMaterial({ 
-  color: 0x4ADE80,
-  side: THREE.DoubleSide,
+  const upperGroundMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0x88ffaa,
   transparent: true,
-  opacity: 0.6,
+  opacity: 0.35,
+  transmission: 0.9,      // makes it actually refract light (very cool)
+  roughness: 0,
+  metalness: 0,
+  clearcoat: 1,
+  clearcoatRoughness: 0,
+  side: THREE.DoubleSide,
   depthWrite: false
 });
   const upperGround = new THREE.Mesh(upperGroundGeometry, upperGroundMaterial);
