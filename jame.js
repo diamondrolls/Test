@@ -2269,36 +2269,47 @@ function createCity() {
   const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
   const gridSize = 8;
   const spacing = 150;
-  
+
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
       const width = 40 + Math.random() * 30;
       const depth = 40 + Math.random() * 30;
       const height = 20 + Math.random() * 40;
-      
+
       const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
-      const buildingMaterial = new THREE.MeshLambertMaterial({ 
-        color: buildingColors[Math.floor(Math.random() * buildingColors.length)] 
+
+      // NEW: Glass-like material with reflection & 60% transparency
+      const buildingMaterial = new THREE.MeshPhysicalMaterial({
+        color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+        roughness: 0.1,
+        metalness: 0.3,
+        transmission: 0.9,        // makes light pass through like real glass
+        thickness: 2.0,            // affects refraction depth
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        transparent: true,
+        opacity: 0.6,              // ← your requested 60% see-through
+        side: THREE.DoubleSide,
+        depthWrite: false          // critical for correct transparency sorting
       });
-      
+
       const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
       building.position.set(
         (x - gridSize/2) * spacing,
         height / 2,
         (z - gridSize/2) * spacing - 100
       );
-      
+
       building.castShadow = true;
       building.receiveShadow = true;
       cityGroup.add(building);
       buildingObjects.push(building);
-      
+
       const buildingBox = new THREE.Box3().setFromObject(building);
       collisionObjects.push(buildingBox);
       createBuildingRoof(building.position.x, building.position.y + height/2, building.position.z, width, depth);
     }
   }
-  
   scene.add(cityGroup);
 }
 
@@ -2326,36 +2337,46 @@ function createUpperPlatform() {
   const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
   const gridSize = 4;
   const spacing = 100;
-  
+
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
       const width = 30 + Math.random() * 20;
       const depth = 30 + Math.random() * 20;
       const height = 15 + Math.random() * 30;
-      
+
       const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
-      const buildingMaterial = new THREE.MeshLambertMaterial({ 
-        color: buildingColors[Math.floor(Math.random() * buildingColors.length)] 
+
+      const buildingMaterial = new THREE.MeshPhysicalMaterial({
+        color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+        roughness: 0.1,
+        metalness: 0.4,
+        transmission: 0.92,
+        thickness: 2.5,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        transparent: true,
+        opacity: 0.6,           // ← 60% transparent
+        side: THREE.DoubleSide,
+        depthWrite: false
       });
-      
+
       const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
       building.position.set(
         50 + (x - gridSize/2) * spacing,
         750 + height / 2,
         0 + (z - gridSize/2) * spacing
       );
-      
+
       building.castShadow = true;
       building.receiveShadow = true;
       upperCityGroup.add(building);
       buildingObjects.push(building);
-      
+
       const buildingBox = new THREE.Box3().setFromObject(building);
       collisionObjects.push(buildingBox);
       createBuildingRoof(building.position.x, building.position.y + height/2, building.position.z, width, depth);
     }
   }
-  
   scene.add(upperCityGroup);
 }
 
