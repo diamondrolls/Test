@@ -2305,7 +2305,7 @@ function createCity() {
 function createUpperPlatform() {
   const upperGroundGeometry = new THREE.PlaneGeometry(500, 500);
   const upperGroundMaterial = new THREE.MeshLambertMaterial({ 
-  color: 0x4ADE80,
+  color: #ADD8E6,
   side: THREE.DoubleSide,
   transparent: true,
   opacity: 0.6,
