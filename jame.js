@@ -3084,11 +3084,6 @@ function removeChatMessage(playerId) {
         activeChatMessages.delete(playerId);
     }
 }
-
-/* ==============================
-   MULTIPLAYER SYSTEM - UPDATED CHAT HANDLING
-============================== */
-
        /* ========================================
    SUPABASE REALTIME MULTIPLAYER — 100+ PLAYERS (FINAL & CLEAN)
    Replaces all WebRTC code — smooth, simple, scales forever
@@ -3244,4 +3239,6 @@ class RealtimeMultiplayer {
   setPlayerName(name) {
     this.playerName = name || "Explorer";
   }
-}                           
+}    
+console.log("NFT Shooter Universe initialized successfully!");
+
