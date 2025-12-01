@@ -3089,564 +3089,159 @@ function removeChatMessage(playerId) {
    MULTIPLAYER SYSTEM - UPDATED CHAT HANDLING
 ============================== */
 
-class WebRTCMultiplayer {
+       /* ========================================
+   SUPABASE REALTIME MULTIPLAYER — 100+ PLAYERS (FINAL & CLEAN)
+   Replaces all WebRTC code — smooth, simple, scales forever
+======================================== */
+
+class RealtimeMultiplayer {
   constructor() {
-    this.peers = new Map();
-    this.otherPlayers = new Map();
-    this.roomId = 'nft-universe-main';
     this.playerId = this.generatePlayerId();
-    this.playerName = 'Explorer';
-    this.playerColor = 0x3B82F6;
-    this.signalingChannel = null;
-    this.dataChannels = new Map();
-    
+    this.playerName = "Explorer";
+    this.otherPlayers = new Map();  // id → { group, targetPos, targetRot, name, avatar }
+    this.channel = null;
+    this.lastBroadcast = 0;
     this.init();
   }
 
   generatePlayerId() {
     if (!localStorage.getItem('playerId')) {
-      localStorage.setItem('playerId', 'player-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+      localStorage.setItem('playerId', 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9));
     }
     return localStorage.getItem('playerId');
   }
 
   async init() {
-    this.setupSignaling();
-    this.setupChat();
-    
-    const nameInput = document.getElementById('player-name');
-    if (nameInput) {
-      nameInput.addEventListener('input', (e) => {
-        this.playerName = e.target.value.trim() || 'Explorer';
-      });
-    }
-  }
-
-  setupSignaling() {
-    try {
-      this.signalingChannel = new BroadcastChannel('nft-universe-webrtc');
-      
-      this.signalingChannel.addEventListener('message', async (event) => {
-        const message = event.data;
-        
-        if (message.roomId !== this.roomId || message.playerId === this.playerId) return;
-        
-        switch (message.type) {
-          case 'player-join':
-            await this.handlePlayerJoin(message);
-            break;
-          case 'offer':
-            await this.handleOffer(message);
-            break;
-          case 'answer':
-            await this.handleAnswer(message);
-            break;
-          case 'ice-candidate':
-            await this.handleIceCandidate(message);
-            break;
-          case 'player-data':
-            this.handlePlayerData(message);
-            break;
-          case 'player-left':
-            this.handlePlayerLeft(message);
-            break;
-          case 'chat-message':
-            this.handleChatMessage(message);
-            break;
-        }
-      });
-
-      this.broadcastSignal({
-        type: 'player-join',
-        playerId: this.playerId,
-        playerData: this.getPlayerData()
-      });
-
-    } catch (error) {
-      console.log('BroadcastChannel not supported, using localStorage fallback');
-      this.setupLocalStorageSignaling();
-    }
-  }
-
-  setupLocalStorageSignaling() {
-    setInterval(() => {
-      const signals = JSON.parse(localStorage.getItem('nft-universe-signals') || '[]');
-      const newSignals = [];
-      
-      signals.forEach(signal => {
-        if (signal.roomId === this.roomId && signal.playerId !== this.playerId) {
-          this.handleSignalingMessage(signal);
-        } else {
-          newSignals.push(signal);
-        }
-      });
-      
-      localStorage.setItem('nft-universe-signals', JSON.stringify(newSignals));
-    }, 1000);
-  }
-
-  broadcastSignal(message) {
-    message.roomId = this.roomId;
-    message.playerId = this.playerId;
-    message.timestamp = Date.now();
-    
-    if (this.signalingChannel) {
-      this.signalingChannel.postMessage(message);
-    } else {
-      const signals = JSON.parse(localStorage.getItem('nft-universe-signals') || '[]');
-      signals.push(message);
-      localStorage.setItem('nft-universe-signals', JSON.stringify(signals));
-    }
-  }
-
-  async handlePlayerJoin(message) {
-    console.log('Player joined:', message.playerId);
-    await this.createPeerConnection(message.playerId);
-  }
-
-  async createPeerConnection(peerId) {
-    const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-
-    const peerConnection = new RTCPeerConnection(configuration);
-    const dataChannel = peerConnection.createDataChannel('nft-universe', {
-      ordered: true
+    this.channel = client.channel('universe-players', {
+      config: { broadcast: { self: false }, presence: { key: this.playerId } }
     });
 
-    this.setupDataChannel(dataChannel, peerId);
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.broadcastSignal({
-          type: 'ice-candidate',
-          to: peerId,
-          candidate: event.candidate
-        });
-      }
-    };
-
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, peerId);
-    };
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    this.broadcastSignal({
-      type: 'offer',
-      to: peerId,
-      offer: offer
-    });
-
-    this.peers.set(peerId, peerConnection);
-    this.dataChannels.set(peerId, dataChannel);
-  }
-
-  async handleOffer(message) {
-    const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-
-    const peerConnection = new RTCPeerConnection(configuration);
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.broadcastSignal({
-          type: 'ice-candidate',
-          to: message.playerId,
-          candidate: event.candidate
-        });
-      }
-    };
-
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, message.playerId);
-    };
-
-    await peerConnection.setRemoteDescription(message.offer);
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    this.broadcastSignal({
-      type: 'answer',
-      to: message.playerId,
-      answer: answer
-    });
-
-    this.peers.set(message.playerId, peerConnection);
-  }
-
-  async handleAnswer(message) {
-    const peerConnection = this.peers.get(message.playerId);
-    if (peerConnection) {
-      await peerConnection.setRemoteDescription(message.answer);
-    }
-  }
-
-  async handleIceCandidate(message) {
-    const peerConnection = this.peers.get(message.playerId);
-    if (peerConnection && message.candidate) {
-      await peerConnection.addIceCandidate(message.candidate);
-    }
-  }
-
-  setupDataChannel(dataChannel, peerId) {
-    dataChannel.onopen = () => {
-      console.log('Data channel connected to', peerId);
-      this.sendPlayerData(peerId);
-    };
-
-    dataChannel.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        this.handlePlayerData(data);
-      } catch (error) {
-        console.error('Error parsing message:', error);
-      }
-    };
-
-    dataChannel.onclose = () => {
-      console.log('Data channel closed with', peerId);
-      this.handlePlayerLeft({ playerId: peerId });
-    };
-
-    this.dataChannels.set(peerId, dataChannel);
-  }
-
-  getPlayerData() {
-    return {
-      name: this.playerName,
-      color: this.playerColor,
-      avatar: window.selectedAvatar,
-      position: window.playerAvatar ? {
-        x: window.playerAvatar.position.x,
-        y: window.playerAvatar.position.y,
-        z: window.playerAvatar.position.z,
-        rotation: window.playerAvatar.rotation.y
-      } : { x: -150, y: 3, z: -150, rotation: 0 }
-    };
-  }
-
-  sendPlayerData(toPeerId = null) {
-    const playerData = {
-      type: 'player-data',
-      playerId: this.playerId,
-      data: this.getPlayerData()
-    };
-
-    if (toPeerId) {
-      const dataChannel = this.dataChannels.get(toPeerId);
-      if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify(playerData));
-      }
-    } else {
-      this.dataChannels.forEach((dataChannel, peerId) => {
-        if (dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify(playerData));
+    this.channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = this.channel.presenceState();
+        for (const [id, presence] of Object.entries(state)) {
+          if (id === this.playerId) continue;
+          const data = presence[0]?.data;
+          if (data) this.handlePlayerUpdate(id, data);
+        }
+      })
+      .on('broadcast', { event: 'player-pos' }, ({ payload }) => {
+        if (payload.id === this.playerId) return;
+        this.handlePlayerUpdate(payload.id, payload);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await this.channel.track({
+            id: this.playerId,
+            name: this.playerName,
+            avatar: selectedAvatar || 'boy',
+            x: -150, y: hoverHeight, z: -150, rot: 0
+          });
         }
       });
+  }
+
+  handlePlayerUpdate(id, data) {
+    let player = this.otherPlayers.get(id);
+
+    if (!player) {
+      player = this.createRemotePlayer(data);
+      this.otherPlayers.set(id, player);
     }
+
+    player.targetPos = { x: data.x, y: data.y, z: data.z };
+    player.targetRot = data.rot;
+    player.name = data.name || "Player";
+    player.avatar = data.avatar || 'boy';
+
+    // Update name tag
+    const oldTag = player.group.children.find(c => c.userData?.isNameTag);
+    if (oldTag) player.group.remove(oldTag);
+    player.group.add(this.createNameTag(player.name));
   }
 
-  handlePlayerData(message) {
-    if (message.type === 'player-data') {
-      this.handlePlayerData(message);
-    } else if (message.type === 'chat-message') {
-      this.handleChatMessage(message);
-    }
+  createRemotePlayer(data) {
+    const group = new THREE.Group();
+
+    // Hoverboard
+    const board = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 10),
+      new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.9, roughness: 0.1, emissive: 0x3b82f6, emissiveIntensity: 0.2 })
+    );
+    board.rotation.x = -Math.PI / 2;
+    board.position.y = -0.5;
+    group.add(board);
+
+    // Body + Head
+    const bodyColor = data.avatar === 'girl' ? 0xec4899 : 0x3b82f6;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8), new THREE.MeshLambertMaterial({ color: bodyColor }));
+    body.position.y = 1;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshLambertMaterial({ color: 0xfcd34d }));
+    head.position.y = 2.3;
+    group.add(body, head);
+
+    group.position.set(data.x || 0, hoverHeight, data.z || 0);
+    group.rotation.y = data.rot || 0;
+    scene.add(group);
+    group.add(this.createNameTag(data.name || "Player"));
+
+    return { group, targetPos: group.position.clone(), targetRot: 0 };
   }
 
-  handleChatMessage(message) {
-    this.addChatMessage(message.sender, message.text, false);
-    createChatMessageBubble(message.playerId, message.sender, message.text, false);
-  }
-
-  handlePlayerLeft(message) {
-    this.removeOtherPlayer(message.playerId);
-    removeChatMessage(message.playerId);
-  }
-
-  createOrUpdateOtherPlayer(playerId, playerData) {
-    if (this.otherPlayers.has(playerId)) {
-      this.updateOtherPlayerPosition(playerId, playerData.position);
-    } else {
-      this.createOtherPlayer(playerId, playerData);
-    }
-  }
-
-  createOtherPlayer(playerId, playerData) {
-    if (window.scene && playerData.position) {
-      const playerGroup = new THREE.Group();
-      
-      const boardGeometry = new THREE.PlaneGeometry(10, 10);
-      const boardMaterial = new THREE.MeshStandardMaterial({ 
-        color: playerData.color || 0x3B82F6,
-        metalness: 0.8,
-        roughness: 0.2,
-        side: THREE.DoubleSide
-      });
-      const board = new THREE.Mesh(boardGeometry, boardMaterial);
-      board.rotation.x = -Math.PI / 2;
-      board.castShadow = true;
-      board.receiveShadow = true;
-      playerGroup.add(board);
-
-      let avatar;
-      if (playerData.avatar === 'boy') {
-        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 1.5;
-        
-        const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
-        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = 2.8;
-        
-        avatar = new THREE.Group();
-        avatar.add(body);
-        avatar.add(head);
-      } else {
-        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 1.5;
-        
-        const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
-        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = 2.8;
-        
-        avatar = new THREE.Group();
-        avatar.add(body);
-        avatar.add(head);
-      }
-
-      avatar.position.y = 0.1;
-      avatar.castShadow = true;
-      playerGroup.add(avatar);
-
-      playerGroup.position.set(
-        playerData.position.x,
-        playerData.position.y,
-        playerData.position.z
-      );
-      playerGroup.rotation.y = playerData.position.rotation;
-      playerGroup.castShadow = true;
-      
-      window.scene.add(playerGroup);
-
-      const nameTag = this.createNameTag(playerData.name, playerData.color);
-      playerGroup.add(nameTag);
-
-      this.otherPlayers.set(playerId, {
-        group: playerGroup,
-        name: playerData.name,
-        color: playerData.color,
-        avatar: playerData.avatar
-      });
-
-      this.updatePlayersPanel();
-      console.log('Created other player:', playerId, playerData.name);
-    }
-  }
-
-  createNameTag(name, color) {
+  createNameTag(name) {
     const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    
-    context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    context.font = '24px Arial';
-    context.fillStyle = '#FFFFFF';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(name, canvas.width / 2, canvas.height / 2);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
+    const ctx = canvas.getContext('2d');
+    canvas.width = 256; canvas.height = 64;
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.font = 'bold 28px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, 128, 32);
+
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
     sprite.position.y = 5;
     sprite.scale.set(10, 2.5, 1);
+    sprite.userData.isNameTag = true;
     return sprite;
   }
 
-  updateOtherPlayerPosition(playerId, position) {
-    const otherPlayer = this.otherPlayers.get(playerId);
-    if (otherPlayer && otherPlayer.group) {
-      otherPlayer.group.position.set(position.x, position.y, position.z);
-      otherPlayer.group.rotation.y = position.rotation;
-    }
-  }
+  broadcastPosition() {
+    if (!playerAvatar) return;
+    const now = Date.now();
+    if (now - this.lastBroadcast < 80) return; // 12.5 updates/sec
+    this.lastBroadcast = now;
 
-  removeOtherPlayer(playerId) {
-    const otherPlayer = this.otherPlayers.get(playerId);
-    if (otherPlayer && otherPlayer.group && window.scene) {
-      window.scene.remove(otherPlayer.group);
-      this.otherPlayers.delete(playerId);
-      this.updatePlayersPanel();
-    }
-  }
+    const data = {
+      id: this.playerId,
+      name: this.playerName,
+      avatar: selectedAvatar || 'boy',
+      x: playerAvatar.position.x,
+      y: playerAvatar.position.y,
+      z: playerAvatar.position.z,
+      rot: playerAvatar.rotation.y
+    };
 
-  updatePlayersPanel() {
-    const playersList = document.getElementById('players-list');
-    const playerCount = document.getElementById('player-count');
-    
-    if (playersList && playerCount) {
-      playersList.innerHTML = '';
-      playerCount.textContent = this.otherPlayers.size + 1;
-      
-      const currentPlayerItem = document.createElement('div');
-      currentPlayerItem.className = 'player-item';
-      currentPlayerItem.innerHTML = `
-        <div class="player-color" style="background-color: #${this.playerColor.toString(16).padStart(6, '0')};"></div>
-        <div class="player-name">${this.playerName} (You)</div>
-      `;
-      playersList.appendChild(currentPlayerItem);
-      
-      this.otherPlayers.forEach((player, playerId) => {
-        const playerItem = document.createElement('div');
-        playerItem.className = 'player-item';
-        playerItem.innerHTML = `
-          <div class="player-color" style="background-color: #${player.color.toString(16).padStart(6, '0')};"></div>
-          <div class="player-name">${player.name}</div>
-        `;
-        playersList.appendChild(playerItem);
-      });
-    }
-  }
-
-  sendPositionUpdate() {
-    if (window.playerAvatar) {
-      this.sendPlayerData();
-    }
-  }
-
-  setupChat() {
-    const chatInput = document.getElementById('chat-input');
-    const chatSend = document.getElementById('chat-send');
-    
-    if (chatSend) {
-      chatSend.addEventListener('click', () => this.sendChatMessage());
-    }
-    
-    if (chatInput) {
-      chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          this.sendChatMessage();
-          // Close sidebar and reset camera when Enter is pressed
-          this.closeChatInterface();
-        }
-      });
-
-      if (!window.isMobile) {
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 't' || e.key === 'T') {
-            document.getElementById('sidebar').classList.add('active');
-            canMove = false;
-            document.querySelector('.modal-overlay').classList.add('active');
-            setTimeout(() => chatInput.focus(), 100);
-          }
-        });
-      }
-    }
-  }
-
-  sendChatMessage() {
-    const chatInput = document.getElementById('chat-input');
-    const message = chatInput.value.trim();
-    
-    if (message) {
-      const chatData = {
-        type: 'chat-message',
-        playerId: this.playerId,
-        sender: this.playerName,
-        text: message
-      };
-      
-      this.dataChannels.forEach((dataChannel, peerId) => {
-        if (dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify(chatData));
-        }
-      });
-      
-      this.addChatMessage(this.playerName, message, true);
-      createChatMessageBubble(this.playerId, this.playerName, message, true);
-      chatInput.value = '';
-    }
-  }
-
-  closeChatInterface() {
-    // Close sidebar
-    const sidebar = document.getElementById('sidebar');
-    const modalOverlay = document.querySelector('.modal-overlay');
-    
-    sidebar.classList.remove('active');
-    canMove = true;
-    modalOverlay.classList.remove('active');
-    
-    // Reset camera angle to current player direction
-    if (playerAvatar) {
-      targetCameraAngle = playerAvatar.rotation.y - Math.PI;
-    }
-    
-    // Re-lock controls if they were locked before
-    if (controls && !isMobile) {
-      setTimeout(() => {
-        if (canMove && !controls.isLocked) {
-          controls.lock();
-        }
-      }, 100);
-    }
-  }
-
-  addChatMessage(sender, message, isOwn) {
-    const chatMessages = document.getElementById('chat-messages');
-    if (chatMessages) {
-      const messageElement = document.createElement('div');
-      messageElement.className = 'chat-message';
-      
-      if (isOwn) {
-        messageElement.innerHTML = `<span class="chat-sender">You:</span> ${message}`;
-      } else {
-        messageElement.innerHTML = `<span class="chat-sender">${sender}:</span> ${message}`;
-      }
-      
-      chatMessages.appendChild(messageElement);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-  }
-
-  disconnect() {
-    this.broadcastSignal({
-      type: 'player-left',
-      playerId: this.playerId
+    this.channel?.send({
+      type: 'broadcast',
+      event: 'player-pos',
+      payload: data
     });
-    
-    this.peers.forEach((peerConnection, peerId) => peerConnection.close());
-    this.otherPlayers.forEach((player, playerId) => this.removeOtherPlayer(playerId));
-    if (this.signalingChannel) this.signalingChannel.close();
-  }
-}
 
-// Clean up bots when leaving
-window.addEventListener('beforeunload', () => {
-  if (multiplayer) {
-    multiplayer.disconnect();
+    // Also update presence for instant join detection
+    this.channel?.track(data);
   }
-  if (botManager) {
-    botManager.dispose();
-  }
-});
 
-console.log("NFT Shooter Universe initialized successfully!");
+  updatePlayers() {
+    this.otherPlayers.forEach(player => {
+      player.group.position.lerp(new THREE.Vector3(player.targetPos.x, player.targetPos.y, player.targetPos.z), 0.2);
+      const targetQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), player.targetRot);
+      player.group.quaternion.slerp(targetQuat, 0.2);
+    });
+  }
+
+  setPlayerName(name) {
+    this.playerName = name || "Explorer";
+  }
+}                           
