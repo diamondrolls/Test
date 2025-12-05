@@ -2714,6 +2714,10 @@ function animate() {
   if (botManager) {
     botManager.update();
   }
+
+if (multiplayer) {
+  multiplayer.updatePlayers();  // This smoothly interpolates other players
+}
   
   if (window.updateMiniMap) {
     window.updateMiniMap();
