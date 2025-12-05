@@ -943,22 +943,21 @@ async function convertTokensToNFT() {
 }
 
 /* ==============================
-   TOKEN PURCHASE SYSTEM
+   TOKEN PURCHASE SYSTEM — SAFE & SERVER-BACKED
 ============================== */
 
 function setupTokenPurchase() {
-  document.getElementById('purchase-token-btn-sidebar').addEventListener('click', openTokenPurchaseModal);
-  document.getElementById('purchase-token-cards').addEventListener('click', openTokenPurchaseModal);
-  document.getElementById('buy-250-token').addEventListener('click', purchaseTokens);
-  document.getElementById('close-token-purchase-modal').addEventListener('click', closeTokenPurchaseModal);
+  document.getElementById('purchase-token-btn-sidebar')?.addEventListener('click', openTokenPurchaseModal);
+  document.getElementById('purchase-token-cards')?.addEventListener('click', openTokenPurchaseModal);
+  document.getElementById('buy-250-token')?.addEventListener('click', purchase250Tokens);
+  document.getElementById('close-token-purchase-modal')?.addEventListener('click', closeTokenPurchaseModal);
 }
 
 function openTokenPurchaseModal() {
   if (!account) {
-    alert("Please connect your wallet to purchase tokens.");
+    alert("Please connect your wallet first!");
     return;
   }
-  
   document.getElementById('token-purchase-modal').style.display = 'block';
 }
 
@@ -966,28 +965,29 @@ function closeTokenPurchaseModal() {
   document.getElementById('token-purchase-modal').style.display = 'none';
 }
 
-async function purchaseTokens() {
-  if (!account) {
-    alert("Please connect your wallet to purchase tokens.");
-    return;
-  }
-  
+// New safe purchase: pay ETH → server gives tokens
+async function purchase250Tokens() {
+  if (!account) return;
+
+  const tokenAmount = 250;
+  const ethPrice = "0.1"; // 0.1 ETH
+
   try {
-    const tokenAmount = 250;
-    const ethPrice = 0.1;
-    
+    // 1. Send ETH to your treasury address
     await web3.eth.sendTransaction({
       from: account,
-      to: RECEIVER_ADDRESS,
-      value: web3.utils.toWei(ethPrice.toString(), 'ether')
+      to: RECEIVER_ADDRESS,           // ← change if you want a different treasury
+      value: web3.utils.toWei(ethPrice, "ether")
     });
-    
-    await addTokens(tokenAmount);
-    alert(`✅ Successfully purchased ${tokenAmount} game tokens!`);
+
+    // 2. Server securely adds tokens (no client cheating possible)
+    await addTokens(tokenAmount, "token_purchase");
+
+    alert(`Success! You received ${tokenAmount} tokens!`);
     closeTokenPurchaseModal();
   } catch (err) {
-    console.error("Token purchase failed:", err);
-    alert(`Purchase failed: ${err.message}`);
+    console.error("Purchase failed:", err);
+    alert("Purchase failed — no tokens charged. Try again.");
   }
 }
 
