@@ -2718,6 +2718,12 @@ function animate() {
 if (multiplayer) {
   multiplayer.updatePlayers();  // This smoothly interpolates other players
 }
+
+scene.traverse((obj) => {
+  if (obj.userData.isNameTag) {
+    obj.lookAt(camera.position);
+  }
+});
   
   if (window.updateMiniMap) {
     window.updateMiniMap();
