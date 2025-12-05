@@ -1534,28 +1534,17 @@ function setupBulletPurchaseWithTokens() {
 
 async function buyBulletsWithToken() {
   if (!account) {
-    alert("Please connect your wallet to purchase bullets with tokens.");
+    alert("Connect wallet first!");
     return;
   }
-  
-  const tokenCost = GAME_CONFIG.BULLET_COST;
-  const bulletAmount = GAME_CONFIG.BULLET_AMOUNT;
-  
-  if (playerStats.gameTokens < tokenCost) {
-    alert(`Insufficient tokens. You need ${tokenCost} token but only have ${playerStats.gameTokens}.`);
-    return;
-  }
-  
-  try {
-    await removeTokens(tokenCost);
-    playerStats.bullets = Math.min(playerStats.bullets + bulletAmount, playerStats.maxBullets);
-    updateBulletDisplay();
-    alert(`✅ Successfully purchased ${bulletAmount} bullets for ${tokenCost} token!`);
-    closeBulletPurchaseModal();
-  } catch (err) {
-    console.error("Bullet purchase with token failed:", err);
-    alert(`Purchase failed: ${err.message}`);
-  }
+
+  const success = await spendTokens(GAME_CONFIG.BULLET_COST);
+  if (!success) return;
+
+  playerStats.bullets = Math.min(playerStats.bullets + GAME_CONFIG.BULLET_AMOUNT, playerStats.maxBullets);
+  updateBulletDisplay();
+  alert(`+${GAME_CONFIG.BULLET_AMOUNT} bullets purchased!`);
+  closeBulletPurchaseModal();
 }
 
 function showBulletPurchaseModal() {
