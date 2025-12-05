@@ -1831,12 +1831,14 @@ async function connectWallet() {
       web3 = new Web3(provider);
       const accounts = await web3.eth.getAccounts();
       account = accounts[0];
-    }
 
-    document.getElementById("walletStatus").innerText =
-      `✅ Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+document.getElementById("walletStatus").innerText =
+  `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
 
-    nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
+// CRITICAL: Load real token balance from server
+await fetchTokenBalance();
+
+nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
     await loadTokenBalance();
     updateOwnedBuildings();
     
