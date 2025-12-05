@@ -817,89 +817,73 @@ function manageNFTCache() {
 setInterval(manageNFTCache, 30000);
 
 /* ==============================
-   TOKEN ECONOMY SYSTEM
+   TOKEN ECONOMY SYSTEM — SECURE SERVER-SIDE (NO MORE LOCALSTORAGE)
 ============================== */
 
-async function initTokenSystem() {
-  await loadTokenBalance();
-  setupTokenTransfer();
-  setupTokenPurchase();
-}
+const TOKEN_API_URL = "https://YOUR-PROJECT.supabase.co/functions/v1/manage-tokens"; 
+// ← CHANGE THIS TO YOUR REAL URL AFTER DEPLOYING THE EDGE FUNCTION
 
-async function loadTokenBalance() {
-  try {
-    if (!account) {
-      playerStats.gameTokens = 0;
-      updateTokenDisplay();
-      return;
-    }
-    
-    const storedBalance = localStorage.getItem(`gameTokens_${account}`);
-    if (storedBalance) {
-      playerStats.gameTokens = parseInt(storedBalance);
-    } else {
-      playerStats.gameTokens = 0;
-      localStorage.setItem(`gameTokens_${account}`, '0');
-    }
-    
-    updateTokenDisplay();
-    
-  } catch (err) {
-    console.error("Failed to load token balance:", err);
+async function fetchTokenBalance() {
+  if (!account) {
     playerStats.gameTokens = 0;
-    updateTokenDisplay();
-  }
-}
-
-function updateTokenDisplay() {
-  document.getElementById('token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('building-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('bullet-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('transfer-token-balance').textContent = playerStats.gameTokens;
-  
-  const transferAmountInput = document.getElementById('transfer-amount');
-  if (transferAmountInput) {
-    transferAmountInput.max = playerStats.gameTokens;
-  }
-  
-  const purchaseBtn = document.getElementById('purchase-building');
-  const balanceCheck = document.getElementById('token-balance-check');
-  
-  if (purchaseBtn && balanceCheck) {
-    if (playerStats.gameTokens >= GAME_CONFIG.BUILDING_BASE_COST) {
-      purchaseBtn.disabled = false;
-      purchaseBtn.textContent = `Purchase for ${GAME_CONFIG.BUILDING_BASE_COST} Tokens`;
-      balanceCheck.className = 'token-balance-check sufficient';
-      balanceCheck.innerHTML = `Your Token Balance: <span id="building-token-balance">${playerStats.gameTokens}</span> - <span style="color: #10b981;">Sufficient</span>`;
-    } else {
-      purchaseBtn.disabled = true;
-      purchaseBtn.textContent = `Need ${GAME_CONFIG.BUILDING_BASE_COST - playerStats.gameTokens} More Tokens`;
-      balanceCheck.className = 'token-balance-check insufficient';
-      balanceCheck.innerHTML = `Your Token Balance: <span id="building-token-balance">${playerStats.gameTokens}</span> - <span style="color: #ef4444;">Insufficient</span>`;
+  } else {
+    try {
+      const res = await fetch(TOKEN_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: account.toLowerCase(), amount: 0, action: 'add' })
+      });
+      const data = await res.json();
+      playerStats.gameTokens = data.balance || 0;
+    } catch (err) {
+      console.error("Failed to load tokens from server:", err);
+      playerStats.gameTokens = 0;
     }
   }
+  updateTokenDisplay();
 }
 
-async function addTokens(amount) {
-  playerStats.gameTokens += amount;
-  if (account) {
-    localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
+async function addTokens(amount, reason = "gameplay") {
+  if (!account || amount <= 0) return;
+  try {
+    const res = await fetch(TOKEN_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: account.toLowerCase(), amount, action: 'add' })
+    });
+    if (res.ok) {
+      const { balance } = await res.json();
+      playerStats.gameTokens = balance;
+      updateTokenDisplay();
+    }
+  } catch (err) {
+    console.error("Failed to add tokens:", err);
   }
-  updateTokenDisplay();
-  console.log(`Added ${amount} tokens to player balance. New balance: ${playerStats.gameTokens}`);
 }
 
-async function removeTokens(amount) {
-  if (playerStats.gameTokens < amount) {
-    throw new Error(`Insufficient token balance. Required: ${amount}, Available: ${playerStats.gameTokens}`);
+async function spendTokens(amount) {
+  if (!account || amount <= 0) return false;
+  try {
+    const res = await fetch(TOKEN_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: account.toLowerCase(), amount, action: 'spend' })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      alert("Not enough tokens!");
+      return false;
+    }
+
+    const { balance } = 0 } = await res.json();
+    playerStats.gameTokens = balance;
+    updateTokenDisplay();
+    return true;
+  } catch (err) {
+    alert("Transaction failed. Try again.");
+    return false;
   }
-  
-  playerStats.gameTokens -= amount;
-  if (account) {
-    localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
-  }
-  updateTokenDisplay();
-  console.log(`Removed ${amount} tokens from player balance. New balance: ${playerStats.gameTokens}`);
 }
 
 /* ==============================
