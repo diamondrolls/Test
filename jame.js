@@ -876,8 +876,8 @@ async function spendTokens(amount) {
       return false;
     }
 
-    const { balance } = 0 } = await res.json();
-    playerStats.gameTokens = balance;
+const { balance } = await res.json();
+     playerStats.gameTokens = balance;
     updateTokenDisplay();
     return true;
   } catch (err) {
