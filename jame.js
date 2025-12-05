@@ -500,7 +500,14 @@ function setupAvatarSelection() {
 
 function startGame() {
   initSidebar();
-  multiplayer = new WebRTCMultiplayer();
+  
+  // Correct: use the new RealtimeMultiplayer class
+  multiplayer = new RealtimeMultiplayer();
+  
+  const nameInput = document.getElementById('player-name');
+  if (nameInput && nameInput.value.trim()) {
+    multiplayer.playerName = nameInput.value.trim();   // this still works
+  }
   
   const nameInput = document.getElementById('player-name');
   if (nameInput && nameInput.value.trim()) {
