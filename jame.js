@@ -3188,23 +3188,28 @@ class RealtimeMultiplayer {
   }
 
   createNameTag(name) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = 256; canvas.height = 64;
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(0, 0, 256, 64);
-    ctx.font = 'bold 28px Arial';
-    ctx.fillStyle = 'white';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(name, 128, 32);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 256; canvas.height = 64;
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.font = 'bold 28px Arial';
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name.slice(0, 12), 128, 32); // Limit name length
 
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
-    sprite.position.y = 5;
-    sprite.scale.set(10, 2.5, 1);
-    sprite.userData.isNameTag = true;
-    return sprite;
-  }
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ 
+    map: new THREE.CanvasTexture(canvas),
+    transparent: true,
+    depthTest: false
+  }));
+  sprite.position.y = 5;
+  sprite.scale.set(10, 2.5, 1);
+  sprite.userData.isNameTag = true;
+  sprite.renderOrder = 999; // Always on top
+  return sprite;
+}
 
   broadcastPosition() {
     if (!playerAvatar) return;
