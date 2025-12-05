@@ -527,12 +527,12 @@ function startGame() {
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
   
-  setInterval(() => {
-    if (multiplayer) {
-      multiplayer.sendPositionUpdate();
-    }
-  }, 100);
-}
+  // Broadcast our position ~12 times per second
+setInterval(() => {
+  if (multiplayer && playerAvatar) {
+    multiplayer.broadcastPosition();
+  }
+}, 80); // 80ms = ~12.5 FPS (perfect for smooth movement)
 
 /* ==============================
    OPTIMIZED NFT LOADING FUNCTIONS
