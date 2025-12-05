@@ -1695,6 +1695,7 @@ function checkBulletCollisions(bullet, bulletIndex) {
       bullet.active = false;
       playerStats.bullets = Math.min(playerStats.bullets + 50, playerStats.maxBullets);
       playerStats.score += 50;
+       await addTokens(50, "nft_hit");
       updateBulletDisplay();
       updateScoreDisplay();
       return;
@@ -1712,6 +1713,7 @@ function checkBulletCollisions(bullet, bulletIndex) {
           playerStats.bullets = Math.min(playerStats.bullets + 300, playerStats.maxBullets);
           updateBulletDisplay();
           playerStats.score += 100;
+           await addTokens(100, "player_hit");
           updateScoreDisplay();
           
           if (otherPlayer.group) {
