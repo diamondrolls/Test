@@ -887,26 +887,21 @@ async function spendTokens(amount) {
 }
 
 /* ==============================
-   TOKEN TRANSFER SYSTEM
+   TOKEN → NFT MINT SYSTEM (SAFE & REAL ON-CHAIN)
 ============================== */
 
 function setupTokenTransfer() {
   document.getElementById('transfer-token-btn-sidebar').addEventListener('click', openTokenTransferModal);
-  document.getElementById('transfer-token-confirm').addEventListener('click', transferTokensToWallet);
+  document.getElementById('transfer-token-confirm').addEventListener('click', convertTokensToNFT);
   document.getElementById('close-transfer-modal').addEventListener('click', closeTokenTransferModal);
 }
 
 function openTokenTransferModal() {
   if (!account) {
-    alert("Please connect your wallet to convert tokens to NFTs.");
+    alert("Connect your wallet first!");
     return;
   }
-  
-  if (playerStats.gameTokens <= 0) {
-    alert("You don't have any tokens to convert.");
-    return;
-  }
-  
+
   document.getElementById('transfer-wallet-address').textContent = account;
   document.getElementById('transfer-amount').value = '';
   document.getElementById('transfer-amount').max = playerStats.gameTokens;
@@ -917,56 +912,33 @@ function closeTokenTransferModal() {
   document.getElementById('token-transfer-modal').style.display = 'none';
 }
 
-async function transferTokensToWallet() {
-  const amount = parseInt(document.getElementById('transfer-amount').value);
-  
-  if (!amount || amount <= 0) {
-    alert("Please enter a valid amount to convert.");
+// New safe conversion: spend tokens → mint 1 real NFT
+async function convertTokensToNFT() {
+  const amount = parseInt(document.getElementById('transfer-amount').value || '0');
+
+  if (amount < 1000) {
+    alert("You need at least 1000 tokens to mint an exclusive NFT");
     return;
   }
-  
-  if (amount > playerStats.gameTokens) {
-    alert(`Insufficient tokens. You have ${playerStats.gameTokens} but tried to convert ${amount}.`);
-    return;
-  }
-  
+
+  const confirmed = await spendTokens(amount);
+  if (!confirmed) return;
+
   try {
-    await removeTokens(amount);
-    await mintNFTs(account, amount);
-    alert(`✅ Successfully converted ${amount} tokens to real NFTs in your wallet!`);
+    try {
+    // Real on-chain mint (adjust price if your contract is free or paid)
+    await nftContract.methods.mint(account, 1).send({
+      from: account,
+      value: web3.utils.toWei("0.01", "ether") // change to 0 if mint is free
+    });
+
+    alert(`Congratulations! You minted 1 exclusive NFT for ${amount} tokens!`);
     closeTokenTransferModal();
   } catch (err) {
-    console.error("Token transfer failed:", err);
-    alert(`Conversion failed: ${err.message}`);
-  }
-}
-
-async function mintNFTs(toAddress, amount) {
-  const mintCost = web3.utils.toWei((0.01 * amount).toString(), 'ether');
-  
-  try {
-    await web3.eth.sendTransaction({
-      from: account,
-      to: RECEIVER_ADDRESS,
-      value: mintCost,
-      data: web3.eth.abi.encodeFunctionCall({
-        name: 'mint',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: 'to'
-        }, {
-          type: 'uint256',
-          name: 'amount'
-        }]
-      }, [toAddress, amount])
-    });
-    
-    console.log(`Minted ${amount} NFTs for ${toAddress}`);
-    
-  } catch (err) {
-    console.error("NFT minting failed:", err);
-    throw new Error("Failed to mint NFTs on blockchain");
+    console.error("Mint failed:", err);
+    // Refund tokens if mint fails
+    await addTokens(amount, "mint_refund");
+    alert("Mint failed — your tokens have been refunded.");
   }
 }
 
