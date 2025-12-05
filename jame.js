@@ -1839,7 +1839,6 @@ document.getElementById("walletStatus").innerText =
 await fetchTokenBalance();
 
 nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
-    await loadTokenBalance();
     updateOwnedBuildings();
     
     if (document.getElementById('avatar-selection').style.display === 'none') {
