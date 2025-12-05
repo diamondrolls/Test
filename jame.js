@@ -1268,89 +1268,83 @@ function closeBuildingModal() {
   currentBuildingInteraction = null;
 }
 
+/* ==============================
+   BUILDING PURCHASE — FULLY SECURE (uses spendTokens + addTokens)
+============================== */
+
 async function purchaseBuilding() {
-  if (!account) {
-    alert("Please connect your wallet to purchase buildings.");
+  if (!account || !currentBuildingInteraction) {
+    alert("Connect wallet first!");
     return;
   }
-  
-  if (!currentBuildingInteraction) return;
-  
+
   const buildingId = currentBuildingInteraction.id;
-  const buildingData = buildingOwnership.get(buildingId);
-  const ownerName = document.getElementById('owner-name-input').value.trim() || 'Unknown Owner';
-  const purchasePrice = buildingData && buildingData.forSale ? 
-    buildingData.salePrice : GAME_CONFIG.BUILDING_BASE_COST;
-  
-  if (playerStats.gameTokens < purchasePrice) {
-    alert(`Insufficient tokens! You need ${purchasePrice} but only have ${playerStats.gameTokens}.`);
-    return;
-  }
-  
+  const buildingData = buildingOwnership.get(buildingId) || {};
+  const price = buildingData.forSale && buildingData.salePrice 
+    ? buildingData.salePrice 
+    : GAME_CONFIG.BUILDING_BASE_COST;
+
+  const ownerName = document.getElementById('owner-name-input')?.value.trim() || "Anonymous";
+
+  // Use secure server-side spend
+  const success = await spendTokens(price);
+  if (!success) return;
+
   try {
-    playerStats.gameTokens -= purchasePrice;
-    localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
-    
-    if (buildingData && buildingData.forSale && buildingData.owner) {
-      await transferTokensToSeller(buildingData.owner, purchasePrice);
+    // If there was a previous owner, reward them automatically
+    if (buildingData.forSale && buildingData.owner && buildingData.owner.toLowerCase() !== account.toLowerCase()) {
+      await addTokensToAddress(buildingData.owner, price, "building_sale");
     }
-    
+
+    // Save ownership in Supabase
     const { error } = await client.from("building_ownership").upsert({
       building_id: buildingId,
       owner: account,
       owner_name: ownerName,
-      purchase_price: purchasePrice,
+      purchase_price: price,
       for_sale: false,
       sale_price: null,
-      previous_owner: buildingData?.owner || null,
+      previous_owner: buildingData.owner || null,
       updated_at: new Date().toISOString()
     });
-    
-    if (error) {
-      playerStats.gameTokens += purchasePrice;
-      localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
-      throw new Error(`Database error: ${error.message}`);
-    }
-    
+
+    if (error) throw error;
+
+    // Update local cache
     buildingOwnership.set(buildingId, {
       owner: account,
       ownerName: ownerName,
-      purchasePrice: purchasePrice,
-      salePrice: null,
+      purchasePrice: price,
       forSale: false,
-      previousOwner: buildingData?.owner || null
+      salePrice: null,
+      previousOwner: buildingData.owner || null
     });
-    
+
     addOwnerTagToBuilding(buildingId, ownerName);
     removeSaleIndicator(buildingId);
     updateOwnedBuildings();
-    
-    const sellerInfo = buildingData && buildingData.owner ? 
-      ` (purchased from ${buildingData.ownerName || 'previous owner'})` : '';
-    
-    alert(`✅ Building purchased for ${purchasePrice} tokens${sellerInfo}!`);
-    updateTokenDisplay();
+
+    alert(`Building purchased for ${price} tokens!`);
     closeBuildingModal();
-    
   } catch (err) {
-    console.error("Building purchase failed:", err);
-    alert(`Purchase failed: ${err.message}`);
+    console.error("Purchase failed:", err);
+    // Refund buyer if DB write fails
+    await addTokens(price, "building_refund");
+    alert("Purchase failed — tokens refunded.");
   }
 }
 
-async function transferTokensToSeller(sellerAddress, amount) {
+// Helper: give tokens to any wallet (used for building sales)
+async function addTokensToAddress(wallet, amount, reason = "reward") {
+  if (!wallet || amount <= 0) return;
   try {
-    const sellerBalance = parseInt(localStorage.getItem(`gameTokens_${sellerAddress}`) || '0');
-    const newSellerBalance = sellerBalance + amount;
-    localStorage.setItem(`gameTokens_${sellerAddress}`, newSellerBalance.toString());
-    console.log(`Transferred ${amount} tokens from buyer to seller ${sellerAddress}`);
-    
-    if (multiplayer && multiplayer.otherPlayers.has(sellerAddress)) {
-      console.log(`Seller ${sellerAddress} received ${amount} tokens from building sale`);
-    }
-    
+    await fetch(TOKEN_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: wallet.toLowerCase(), amount, action: 'add' })
+    });
   } catch (err) {
-    console.error("Token transfer to seller failed:", err);
+    console.error("Failed to reward seller:", err);
   }
 }
 
