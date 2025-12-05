@@ -820,7 +820,7 @@ setInterval(manageNFTCache, 30000);
    TOKEN ECONOMY SYSTEM — SECURE SERVER-SIDE (NO MORE LOCALSTORAGE)
 ============================== */
 
-const TOKEN_API_URL = "https://YOUR-PROJECT.supabase.co/functions/v1/manage-tokens"; 
+const TOKEN_API_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/hyper-task"; 
 // ← CHANGE THIS TO YOUR REAL URL AFTER DEPLOYING THE EDGE FUNCTION
 
 async function fetchTokenBalance() {
