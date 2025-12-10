@@ -499,14 +499,18 @@ function setupAvatarSelection() {
 }
 
 function startGame() {
+function startGame() {
   initSidebar();
   
-  // Correct: use the new RealtimeMultiplayer class
+  // Create multiplayer instance
   multiplayer = new RealtimeMultiplayer();
   
+  // Set player name from input field (this was missing!)
   const nameInput = document.getElementById('player-name');
   if (nameInput && nameInput.value.trim()) {
-    multiplayer.playerName = nameInput.value.trim();   // this still works
+    multiplayer.playerName = nameInput.value.trim();
+  } else {
+    multiplayer.playerName = "Explorer"; // fallback
   }
   
   multiplayer.playerColor = Math.random() * 0xFFFFFF;
@@ -514,14 +518,14 @@ function startGame() {
   
   init3DScene();
   
-  // Initialize bot manager with expanded roaming
+  // Initialize bot manager
   botManager = new BotManager(scene, multiplayer, {
-    maxBots: 8, // More bots for larger area
-    roamRadius: worldBoundary * 0.9, // Almost entire world
-    moveSpeed: 4.0, // Faster movement
-    detectionRange: 100, // Can detect players from farther
-    interactionRange: 25, // Larger interaction radius
-    stateDuration: 8000 // Longer states for more exploration
+    maxBots: 8,
+    roamRadius: worldBoundary * 0.9,
+    moveSpeed: 4.0,
+    detectionRange: 100,
+    interactionRange: 25,
+    stateDuration: 8000
   });
   
   loadNFTs();
@@ -529,13 +533,13 @@ function startGame() {
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
   
-  // Broadcast our position ~12 times per second
-setInterval(() => {
-  if (multiplayer && playerAvatar) {
-    multiplayer.broadcastPosition();
-  }
-}, 80); // 80ms = ~12.5 FPS (perfect for smooth movement)
-
+  // Broadcast position smoothly
+  setInterval(() => {
+    if (multiplayer && playerAvatar) {
+      multiplayer.broadcastPosition();
+    }
+  }, 80);
+}
 /* ==============================
    FIXED: OPTIMIZED NFT LOADING SYSTEM (Leak-Proof!)
 ============================== */
