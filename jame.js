@@ -509,11 +509,6 @@ function startGame() {
     multiplayer.playerName = nameInput.value.trim();   // this still works
   }
   
-  const nameInput = document.getElementById('player-name');
-  if (nameInput && nameInput.value.trim()) {
-    multiplayer.playerName = nameInput.value.trim();
-  }
-  
   multiplayer.playerColor = Math.random() * 0xFFFFFF;
   document.getElementById('avatar-selection').style.display = 'none';
   
