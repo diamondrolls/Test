@@ -1715,7 +1715,7 @@ function checkBulletCollisions(bullet, bulletIndex) {
           playerStats.bullets = Math.min(playerStats.bullets + 300, playerStats.maxBullets);
           updateBulletDisplay();
           playerStats.score += 100;
-           await addTokens(100, "player_hit");
+           addTokens(100, "player_hit");
           updateScoreDisplay();
           
           if (otherPlayer.group) {
