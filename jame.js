@@ -443,7 +443,7 @@ class BotManager {
 
   update() {
     this.bots.forEach(bot => {
-      if (bot.update) bot.update();
+      if (bot.updateBot) bot.updateBot();
     });
   }
 
