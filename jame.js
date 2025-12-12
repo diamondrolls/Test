@@ -497,8 +497,6 @@ function setupAvatarSelection() {
     }
   });
 }
-
-function startGame() {
 function startGame() {
   initSidebar();
   
