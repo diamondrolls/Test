@@ -454,83 +454,173 @@ class BotManager {
 }
 
 /* ==============================
-   INITIALIZATION
+   LOGIN & AVATAR SELECTION - CLEAN & ROBUST
 ============================== */
 
-document.addEventListener('DOMContentLoaded', function() {
-  client.auth.getSession().then(({ data }) => {
-    if (!data.session) {
-      window.location.href = 'https://diamondrolls.github.io/play/';
-    }
-  });
+let selectedAvatar = null;
+let playerName = "Explorer";
 
+// Run when page fully loads
+document.addEventListener('DOMContentLoaded', async () => {
+  // 1. Check Supabase session — redirect if not logged in
+  const { data: { session } } = await client.auth.getSession();
+  if (!session) {
+    window.location.replace('https://diamondrolls.github.io/play/');
+    return;
+  }
+
+  // 2. Mobile detection + UI
   if (isMobile) {
-    document.getElementById('desktop-instructions').style.display = 'none';
-    document.getElementById('mobile-instructions').style.display = 'block';
+    document.getElementById('desktop-instructions')?.classList.add('hidden');
+    document.getElementById('mobile-instructions')?.classList.remove('hidden');
     setupMobileControls();
   }
 
-  setupAvatarSelection();
+  // 3. Setup avatar selection UI
+  setupAvatarSelectionUI();
+
+  // 4. Focus name input and allow Enter key
+  const nameInput = document.getElementById('player-name');
+  if (nameInput) {
+    nameInput.focus();
+    nameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && selectedAvatar) {
+        startGame();
+      }
+    });
+  }
 });
 
-/* ==============================
-   AVATAR SELECTION SYSTEM
-============================== */
-
-function setupAvatarSelection() {
+function setupAvatarSelectionUI() {
   const avatarOptions = document.querySelectorAll('.avatar-option');
-  const confirmButton = document.getElementById('confirm-avatar');
-  
+  const confirmBtn = document.getElementById('confirm-avatar');
+  const nameInput = document.getElementById('player-name');
+
+  // Click to select avatar
   avatarOptions.forEach(option => {
     option.addEventListener('click', () => {
       avatarOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       selectedAvatar = option.getAttribute('data-avatar');
+
+      // Auto-enable button and allow instant confirm with Enter
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `Play as ${selectedAvatar === 'boy' ? 'Boy' : 'Girl'}`;
     });
+ 0});
   });
 
-  confirmButton.addEventListener('click', () => {
-    if (selectedAvatar) {
-      startGame();
-    } else {
-      alert('Please select an avatar to continue');
+  // Confirm button
+  confirmBtn.addEventListener('click', () => {
+    if (!selectedAvatar) {
+      alert('Please select an avatar!');
+      return;
     }
+
+    // Save name
+    playerName = nameInput?.value.trim() || (selectedAvatar === 'boy' ? 'Mystic Boy' : 'Neon Girl');
+
+    startGame();
+  });
+
+  // Optional: Allow pressing Enter on name input if avatar already selected
+  nameInput?.addEventListener('input', () => {
+    confirmBtn.disabled = !selectedAvatar;
   });
 }
-function startGame() {
-  initSidebar();
-  
-  init3DScene(); 
-  
-  multiplayer = new RealtimeMultiplayer();
-  
-  const nameInput = document.getElementById('player-name');
-  multiplayer.playerName = nameInput && nameInput.value.trim() ? nameInput.value.trim() : "Explorer";
-  
-  multiplayer.playerColor = Math.random() * 0xFFFFFF;
-  
-  botManager = new BotManager(scene, multiplayer, {
-    maxBots: 8,
-    roamRadius: worldBoundary * 0.9,
-    moveSpeed: 4.0,
-    detectionRange: 100,
-    interactionRange: 25,
-    stateDuration: 8000
-  });
-  
-  loadNFTs();
-  
-  initTokenSystem();
-  initBuildingOwnership();
-  setupBulletPurchaseWithTokens();
-  
-  setInterval(() => {
-    if (multiplayer && playerAvatar) {
-      multiplayer.broadcastPosition();
-    }
-  }, 80);
-  
-  document.getElementById('avatar-selection').style.display = 'none';
+
+/* ==============================
+   START GAME — CORRECT ORDER, NO MORE CRASHES
+============================== */
+
+async function startGame() {
+  // Hide avatar screen with nice fade
+  const avatarScreen = document.getElementById('avatar-selection');
+  avatarScreen.style.opacity = '0';
+  setTimeout(() => {
+    avatarScreen.style.display = 'none';
+  }, 400);
+
+  // Show loading hint
+  showLoadingMessage("Entering the NFT Universe...");
+
+  try {
+    // 1. Initialize 3D world and player avatar FIRST
+    init3DScene(); // creates scene, camera, playerAvatar
+
+    // Make playerAvatar globally available for bots/multiplayer
+    window.playerAvatar = playerAvatar;
+
+    // 2. Now initialize multiplayer (needs playerAvatar)
+    multiplayer = new RealtimeMultiplayer();
+    multiplayer.playerName = playerName;
+    multiplayer.playerColor = Math.random() * 0xFFFFFF;
+
+    // 3. Initialize bots (need scene + playerAvatar)
+    botManager = new BotManager(scene, multiplayer, {
+      maxBots: 8,
+      roamRadius: worldBoundary * 0.9,
+      moveSpeed: 4.0,
+      detectionRange: 100,
+      interactionRange: 25,
+      stateDuration: 8000
+    });
+
+    // 4. Now load everything else
+    await Promise.all([
+      loadNFTs(),
+      initTokenSystem(),
+      initBuildingOwnership()
+    ]);
+
+    setupBulletPurchaseWithTokens();
+    initSidebar();
+
+    // 5. Start broadcasting position
+    setInterval(() => {
+      if (multiplayer && playerAvatar) {
+        multiplayer.broadcastPosition();
+      }
+    }, 80);
+
+    console.log(`Game started! Welcome, ${playerName} (${selectedAvatar})`);
+    hideLoadingMessage();
+
+  } catch (err) {
+    console.error("Failed to start game:", err);
+    alert("Failed to load game. Please refresh.");
+    hideLoadingMessage();
+  }
+}
+
+// Simple loading overlay helpers
+function showLoadingMessage(msg = "Loading...") {
+  let loader = document.getElementById('game-loader');
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'game-loader';
+    loader.innerHTML = `
+      <div style="
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); color: white; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-size: 24px; text-align: center; gap: 20px;
+      ">
+        <div class="spinner" style="
+          width: 60px; height: 60px; border: 6px solid #333;
+          border-top: 6px solid #00ff00; border-radius: 50%; animation: spin 1s linear infinite;
+        "></div>
+        <div>${msg}</div>
+      </div>
+      <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+    `;
+    document.body.appendChild(loader);
+  }
+}
+
+function hideLoadingMessage() {
+  const loader = document.getElementById('game-loader');
+  if (loader) loader.remove();
 }
 /* ==============================
    FULLY REWRITTEN NFT LOADING SYSTEM - EFFICIENT, LEAK-FREE, PRIORITIZED
