@@ -2424,6 +2424,7 @@ function createPlayerAvatar() {
   group.castShadow = true;
   scene.add(group);
   playerAvatar = group;
+   window.playerAvatar = group;
 }
 
 function createNFTPlatform(x, y, z) {
