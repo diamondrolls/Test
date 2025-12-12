@@ -454,81 +454,85 @@ class BotManager {
 }
 
 /* ==============================
-   LOGIN & AVATAR SELECTION - CLEAN & ROBUST
+   INITIALIZATION
 ============================== */
 
-let selectedAvatar = null;
-let playerName = "Explorer";
+document.addEventListener('DOMContentLoaded', function() {
+  client.auth.getSession().then(({ data }) => {
+    if (!data.session) {
+      window.location.href = 'https://diamondrolls.github.io/play/';
+    }
+  });
 
-// Run when page fully loads
-document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Check Supabase session — redirect if not logged in
-  const { data: { session } } = await client.auth.getSession();
-  if (!session) {
-    window.location.replace('https://diamondrolls.github.io/play/');
-    return;
-  }
-
-  // 2. Mobile detection + UI
   if (isMobile) {
-    document.getElementById('desktop-instructions')?.classList.add('hidden');
-    document.getElementById('mobile-instructions')?.classList.remove('hidden');
+    document.getElementById('desktop-instructions').style.display = 'none';
+    document.getElementById('mobile-instructions').style.display = 'block';
     setupMobileControls();
   }
 
-  // 3. Setup avatar selection UI
-  setupAvatarSelectionUI();
-
-  // 4. Focus name input and allow Enter key
-  const nameInput = document.getElementById('player-name');
-  if (nameInput) {
-    nameInput.focus();
-    nameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && selectedAvatar) {
-        startGame();
-      }
-    });
-  }
+  setupAvatarSelection();
 });
 
-function setupAvatarSelectionUI() {
-  const avatarOptions = document.querySelectorAll('.avatar-option');
-  const confirmBtn = document.getElementById('confirm-avatar');
-  const nameInput = document.getElementById('player-name');
+/* ==============================
+   AVATAR SELECTION SYSTEM
+============================== */
 
-  // Click to select avatar
+function setupAvatarSelection() {
+  const avatarOptions = document.querySelectorAll('.avatar-option');
+  const confirmButton = document.getElementById('confirm-avatar');
+  
   avatarOptions.forEach(option => {
     option.addEventListener('click', () => {
       avatarOptions.forEach(opt => opt.classList.remove('selected'));
       option.classList.add('selected');
       selectedAvatar = option.getAttribute('data-avatar');
-
-      // Auto-enable button and allow instant confirm with Enter
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = `Play as ${selectedAvatar === 'boy' ? 'Boy' : 'Girl'}`;
     });
- 0});
   });
 
-  // Confirm button
-  confirmBtn.addEventListener('click', () => {
-    if (!selectedAvatar) {
-      alert('Please select an avatar!');
-      return;
+  confirmButton.addEventListener('click', () => {
+    if (selectedAvatar) {
+      startGame();
+    } else {
+      alert('Please select an avatar to continue');
     }
-
-    // Save name
-    playerName = nameInput?.value.trim() || (selectedAvatar === 'boy' ? 'Mystic Boy' : 'Neon Girl');
-
-    startGame();
-  });
-
-  // Optional: Allow pressing Enter on name input if avatar already selected
-  nameInput?.addEventListener('input', () => {
-    confirmBtn.disabled = !selectedAvatar;
   });
 }
 
+function startGame() {
+  initSidebar();
+  multiplayer = new WebRTCMultiplayer();
+  
+  const nameInput = document.getElementById('player-name');
+  if (nameInput && nameInput.value.trim()) {
+    multiplayer.playerName = nameInput.value.trim();
+  }
+  
+  multiplayer.playerColor = Math.random() * 0xFFFFFF;
+  document.getElementById('avatar-selection').style.display = 'none';
+  
+  init3DScene();
+  
+  // Initialize bot manager with expanded roaming
+  botManager = new BotManager(scene, multiplayer, {
+    maxBots: 8, // More bots for larger area
+    roamRadius: worldBoundary * 0.9, // Almost entire world
+    moveSpeed: 4.0, // Faster movement
+    detectionRange: 100, // Can detect players from farther
+    interactionRange: 25, // Larger interaction radius
+    stateDuration: 8000 // Longer states for more exploration
+  });
+  
+  loadNFTs();
+  initTokenSystem();
+  initBuildingOwnership();
+  setupBulletPurchaseWithTokens();
+  
+  setInterval(() => {
+    if (multiplayer) {
+      multiplayer.sendPositionUpdate();
+    }
+  }, 100);
+}
 /* ==============================
    START GAME — CORRECT ORDER, NO MORE CRASHES
 ============================== */
