@@ -500,23 +500,15 @@ function setupAvatarSelection() {
 function startGame() {
   initSidebar();
   
-  // Create multiplayer instance
+  init3DScene(); 
+  
   multiplayer = new RealtimeMultiplayer();
   
-  // Set player name from input field (this was missing!)
   const nameInput = document.getElementById('player-name');
-  if (nameInput && nameInput.value.trim()) {
-    multiplayer.playerName = nameInput.value.trim();
-  } else {
-    multiplayer.playerName = "Explorer"; // fallback
-  }
+  multiplayer.playerName = nameInput && nameInput.value.trim() ? nameInput.value.trim() : "Explorer";
   
   multiplayer.playerColor = Math.random() * 0xFFFFFF;
-  document.getElementById('avatar-selection').style.display = 'none';
   
-  init3DScene();
-  
-  // Initialize bot manager
   botManager = new BotManager(scene, multiplayer, {
     maxBots: 8,
     roamRadius: worldBoundary * 0.9,
@@ -527,16 +519,18 @@ function startGame() {
   });
   
   loadNFTs();
+  
   initTokenSystem();
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
   
-  // Broadcast position smoothly
   setInterval(() => {
     if (multiplayer && playerAvatar) {
       multiplayer.broadcastPosition();
     }
   }, 80);
+  
+  document.getElementById('avatar-selection').style.display = 'none';
 }
 /* ==============================
    FIXED: OPTIMIZED NFT LOADING SYSTEM (Leak-Proof!)
