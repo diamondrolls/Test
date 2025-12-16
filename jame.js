@@ -3090,6 +3090,13 @@ function removeChatMessage(playerId) {
    Instant start | Dynamic rooms | Shareable links | Max 15 players
 ============================== */
 
+        
+  
+/* ==============================
+   FULL MULTIPLAYER SYSTEM - SUPABASE REALTIME
+   Instant start | Dynamic rooms | Shareable links | Max 15 players
+============================== */
+
 let multiplayer = {
   playerId: null,
   playerName: 'Explorer',
@@ -3185,7 +3192,7 @@ async function joinGameRoom(roomId) {
       console.log('✅ Joined room:', roomId);
 
       // Update URL for sharing (without page reload)
-      if (!urlParams.has('room')) {
+      if (!new URLSearchParams(window.location.search).has('room')) {
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('room', roomId);
         window.history.replaceState({}, '', newUrl);
@@ -3340,13 +3347,12 @@ function updatePlayerCountAndList(state) {
 
 // === Room info UI ===
 function updateRoomInfoUI() {
-  document.getElementById('current-room-id') && (
-    document.getElementById('current-room-id').textContent = multiplayer.currentRoomId.slice(-10)
-  );
-  document.getElementById('player-count-ingame') && (
-    document.getElementById('player-count-ingame').textContent =
-      multiplayer.gameChannel ? Object.keys(multiplayer.gameChannel.presenceState()).length : 1
-  );
+  const roomIdEl = document.getElementById('current-room-id');
+  const countEl = document.getElementById('player-count-ingame');
+  if (roomIdEl) roomIdEl.textContent = multiplayer.currentRoomId.slice(-10);
+  if (countEl && multiplayer.gameChannel) {
+    countEl.textContent = Object.keys(multiplayer.gameChannel.presenceState()).length;
+  }
 }
 
 // === Cleanup ===
@@ -3369,7 +3375,7 @@ document.getElementById('copy-invite-btn')?.addEventListener('click', () => {
 });
 
 /* ==============================
-   UPDATE: Avatar confirm button → instant start
+   AVATAR SELECTION → INSTANT START
 ============================== */
 function setupAvatarSelection() {
   const avatarOptions = document.querySelectorAll('.avatar-option');
@@ -3393,17 +3399,14 @@ function setupAvatarSelection() {
 }
 
 /* ==============================
-   UPDATE: startGame() - remove old multiplayer init
+   startGame() - No old multiplayer init
 ============================== */
 async function startGame() {
   initSidebar();
 
-  // Removed: multiplayer = new WebRTCMultiplayer(); ← deleted
-  // Multiplayer now starts from avatar selection via autoJoinOrCreateRoom()
-
   init3DScene();
 
-  botManager = new BotManager(scene, null, {  // pass null or keep old config, bots work independently
+  botManager = new BotManager(scene, null, {
     maxBots: 8,
     roamRadius: worldBoundary * 0.9,
     moveSpeed: 4.0,
@@ -3416,11 +3419,6 @@ async function startGame() {
   initTokenSystem();
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
-
-  // Removed old position interval — now handled inside joinGameRoom()
 }
 
 console.log("NFT Shooter Universe initialized successfully!");
-                        
-        
-    
