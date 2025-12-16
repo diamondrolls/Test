@@ -3086,567 +3086,341 @@ function removeChatMessage(playerId) {
 }
 
 /* ==============================
-   MULTIPLAYER SYSTEM - UPDATED CHAT HANDLING
+   FULL MULTIPLAYER REPLACEMENT - SUPABASE REALTIME
+   Instant start | Dynamic rooms | Shareable links | Max 15 players
 ============================== */
 
-class WebRTCMultiplayer {
-  constructor() {
-    this.peers = new Map();
-    this.otherPlayers = new Map();
-    this.roomId = 'nft-universe-main';
-    this.playerId = this.generatePlayerId();
-    this.playerName = 'Explorer';
-    this.playerColor = 0x3B82F6;
-    this.signalingChannel = null;
-    this.dataChannels = new Map();
-    
-    this.init();
+let multiplayer = {
+  playerId: null,
+  playerName: 'Explorer',
+  playerColor: 0x3B82F6,
+  currentRoomId: null,
+  gameChannel: null,
+  otherPlayers: new Map(),            // playerId → { group, name, color, avatar }
+  MAX_PLAYERS_PER_ROOM: 15
+};
+
+// Persistent unique ID for this browser/player
+function generatePlayerId() {
+  if (!localStorage.getItem('nft_player_id')) {
+    localStorage.setItem('nft_player_id', 'player-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+  }
+  return localStorage.getItem('nft_player_id');
+}
+
+// === Auto-join or create room - Game starts IMMEDIATELY ===
+async function autoJoinOrCreateRoom() {
+  multiplayer.playerId = generatePlayerId();
+
+  const nameInput = document.getElementById('player-name');
+  if (nameInput && nameInput.value.trim()) {
+    multiplayer.playerName = nameInput.value.trim();
+  }
+  multiplayer.playerColor = Math.random() * 0xFFFFFF;
+
+  // Check if joining via shared link (?room=...)
+  const urlParams = new URLSearchParams(window.location.search);
+  let roomId = urlParams.get('room');
+
+  // If no room in URL, create a new one
+  if (!roomId) {
+    roomId = `game-room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
   }
 
-  generatePlayerId() {
-    if (!localStorage.getItem('playerId')) {
-      localStorage.setItem('playerId', 'player-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9));
+  multiplayer.currentRoomId = roomId;
+
+  // Hide avatar screen — game starts now!
+  document.getElementById('avatar-selection').style.display = 'none';
+
+  await joinGameRoom(roomId);
+}
+
+// === Join a game room (new or existing) ===
+async function joinGameRoom(roomId) {
+  multiplayer.gameChannel = client.channel(roomId, {
+    config: {
+      presence: { key: multiplayer.playerId },
+      broadcast: { self: false }
     }
-    return localStorage.getItem('playerId');
-  }
+  });
 
-  async init() {
-    this.setupSignaling();
-    this.setupChat();
-    
-    const nameInput = document.getElementById('player-name');
-    if (nameInput) {
-      nameInput.addEventListener('input', (e) => {
-        this.playerName = e.target.value.trim() || 'Explorer';
-      });
-    }
-  }
-
-  setupSignaling() {
-    try {
-      this.signalingChannel = new BroadcastChannel('nft-universe-webrtc');
-      
-      this.signalingChannel.addEventListener('message', async (event) => {
-        const message = event.data;
-        
-        if (message.roomId !== this.roomId || message.playerId === this.playerId) return;
-        
-        switch (message.type) {
-          case 'player-join':
-            await this.handlePlayerJoin(message);
-            break;
-          case 'offer':
-            await this.handleOffer(message);
-            break;
-          case 'answer':
-            await this.handleAnswer(message);
-            break;
-          case 'ice-candidate':
-            await this.handleIceCandidate(message);
-            break;
-          case 'player-data':
-            this.handlePlayerData(message);
-            break;
-          case 'player-left':
-            this.handlePlayerLeft(message);
-            break;
-          case 'chat-message':
-            this.handleChatMessage(message);
-            break;
+  // Presence: who is online
+  multiplayer.gameChannel
+    .on('presence', { event: 'sync' }, () => {
+      const state = multiplayer.gameChannel.presenceState();
+      updatePlayerCountAndList(state);
+      updateRoomInfoUI();
+    })
+    .on('presence', { event: 'join' }, ({ newPresences }) => {
+      newPresences.forEach(p => {
+        if (p.key !== multiplayer.playerId) {
+          createOtherPlayerAvatar(p.key, p.payload);
         }
       });
-
-      this.broadcastSignal({
-        type: 'player-join',
-        playerId: this.playerId,
-        playerData: this.getPlayerData()
-      });
-
-    } catch (error) {
-      console.log('BroadcastChannel not supported, using localStorage fallback');
-      this.setupLocalStorageSignaling();
-    }
-  }
-
-  setupLocalStorageSignaling() {
-    setInterval(() => {
-      const signals = JSON.parse(localStorage.getItem('nft-universe-signals') || '[]');
-      const newSignals = [];
-      
-      signals.forEach(signal => {
-        if (signal.roomId === this.roomId && signal.playerId !== this.playerId) {
-          this.handleSignalingMessage(signal);
-        } else {
-          newSignals.push(signal);
-        }
-      });
-      
-      localStorage.setItem('nft-universe-signals', JSON.stringify(newSignals));
-    }, 1000);
-  }
-
-  broadcastSignal(message) {
-    message.roomId = this.roomId;
-    message.playerId = this.playerId;
-    message.timestamp = Date.now();
-    
-    if (this.signalingChannel) {
-      this.signalingChannel.postMessage(message);
-    } else {
-      const signals = JSON.parse(localStorage.getItem('nft-universe-signals') || '[]');
-      signals.push(message);
-      localStorage.setItem('nft-universe-signals', JSON.stringify(signals));
-    }
-  }
-
-  async handlePlayerJoin(message) {
-    console.log('Player joined:', message.playerId);
-    await this.createPeerConnection(message.playerId);
-  }
-
-  async createPeerConnection(peerId) {
-    const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-
-    const peerConnection = new RTCPeerConnection(configuration);
-    const dataChannel = peerConnection.createDataChannel('nft-universe', {
-      ordered: true
+    })
+    .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      leftPresences.forEach(p => removeOtherPlayerAvatar(p.key));
     });
 
-    this.setupDataChannel(dataChannel, peerId);
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.broadcastSignal({
-          type: 'ice-candidate',
-          to: peerId,
-          candidate: event.candidate
-        });
+  // Broadcast: position & chat
+  multiplayer.gameChannel
+    .on('broadcast', { event: 'player-move' }, ({ payload }) => {
+      if (payload.playerId !== multiplayer.playerId) {
+        updateOtherPlayerPosition(payload.playerId, payload.position, payload.rotation);
       }
-    };
-
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, peerId);
-    };
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    this.broadcastSignal({
-      type: 'offer',
-      to: peerId,
-      offer: offer
+    })
+    .on('broadcast', { event: 'chat-message' }, ({ payload }) => {
+      addChatMessage(payload.sender, payload.text, false);
+      createChatMessageBubble(payload.playerId, payload.sender, payload.text, false);
     });
 
-    this.peers.set(peerId, peerConnection);
-    this.dataChannels.set(peerId, dataChannel);
-  }
-
-  async handleOffer(message) {
-    const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-
-    const peerConnection = new RTCPeerConnection(configuration);
-
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.broadcastSignal({
-          type: 'ice-candidate',
-          to: message.playerId,
-          candidate: event.candidate
-        });
-      }
-    };
-
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, message.playerId);
-    };
-
-    await peerConnection.setRemoteDescription(message.offer);
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    this.broadcastSignal({
-      type: 'answer',
-      to: message.playerId,
-      answer: answer
-    });
-
-    this.peers.set(message.playerId, peerConnection);
-  }
-
-  async handleAnswer(message) {
-    const peerConnection = this.peers.get(message.playerId);
-    if (peerConnection) {
-      await peerConnection.setRemoteDescription(message.answer);
-    }
-  }
-
-  async handleIceCandidate(message) {
-    const peerConnection = this.peers.get(message.playerId);
-    if (peerConnection && message.candidate) {
-      await peerConnection.addIceCandidate(message.candidate);
-    }
-  }
-
-  setupDataChannel(dataChannel, peerId) {
-    dataChannel.onopen = () => {
-      console.log('Data channel connected to', peerId);
-      this.sendPlayerData(peerId);
-    };
-
-    dataChannel.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        this.handlePlayerData(data);
-      } catch (error) {
-        console.error('Error parsing message:', error);
-      }
-    };
-
-    dataChannel.onclose = () => {
-      console.log('Data channel closed with', peerId);
-      this.handlePlayerLeft({ playerId: peerId });
-    };
-
-    this.dataChannels.set(peerId, dataChannel);
-  }
-
-  getPlayerData() {
-    return {
-      name: this.playerName,
-      color: this.playerColor,
-      avatar: window.selectedAvatar,
-      position: window.playerAvatar ? {
-        x: window.playerAvatar.position.x,
-        y: window.playerAvatar.position.y,
-        z: window.playerAvatar.position.z,
-        rotation: window.playerAvatar.rotation.y
-      } : { x: -150, y: 3, z: -150, rotation: 0 }
-    };
-  }
-
-  sendPlayerData(toPeerId = null) {
-    const playerData = {
-      type: 'player-data',
-      playerId: this.playerId,
-      data: this.getPlayerData()
-    };
-
-    if (toPeerId) {
-      const dataChannel = this.dataChannels.get(toPeerId);
-      if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify(playerData));
-      }
-    } else {
-      this.dataChannels.forEach((dataChannel, peerId) => {
-        if (dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify(playerData));
-        }
-      });
-    }
-  }
-
-  handlePlayerData(message) {
-    if (message.type === 'player-data') {
-      this.handlePlayerData(message);
-    } else if (message.type === 'chat-message') {
-      this.handleChatMessage(message);
-    }
-  }
-
-  handleChatMessage(message) {
-    this.addChatMessage(message.sender, message.text, false);
-    createChatMessageBubble(message.playerId, message.sender, message.text, false);
-  }
-
-  handlePlayerLeft(message) {
-    this.removeOtherPlayer(message.playerId);
-    removeChatMessage(message.playerId);
-  }
-
-  createOrUpdateOtherPlayer(playerId, playerData) {
-    if (this.otherPlayers.has(playerId)) {
-      this.updateOtherPlayerPosition(playerId, playerData.position);
-    } else {
-      this.createOtherPlayer(playerId, playerData);
-    }
-  }
-
-  createOtherPlayer(playerId, playerData) {
-    if (window.scene && playerData.position) {
-      const playerGroup = new THREE.Group();
-      
-      const boardGeometry = new THREE.PlaneGeometry(10, 10);
-      const boardMaterial = new THREE.MeshStandardMaterial({ 
-        color: playerData.color || 0x3B82F6,
-        metalness: 0.8,
-        roughness: 0.2,
-        side: THREE.DoubleSide
-      });
-      const board = new THREE.Mesh(boardGeometry, boardMaterial);
-      board.rotation.x = -Math.PI / 2;
-      board.castShadow = true;
-      board.receiveShadow = true;
-      playerGroup.add(board);
-
-      let avatar;
-      if (playerData.avatar === 'boy') {
-        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x3B82F6 });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 1.5;
-        
-        const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
-        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = 2.8;
-        
-        avatar = new THREE.Group();
-        avatar.add(body);
-        avatar.add(head);
-      } else {
-        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 1.5;
-        
-        const headGeometry = new THREE.SphereGeometry(0.6, 8, 8);
-        const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = 2.8;
-        
-        avatar = new THREE.Group();
-        avatar.add(body);
-        avatar.add(head);
-      }
-
-      avatar.position.y = 0.1;
-      avatar.castShadow = true;
-      playerGroup.add(avatar);
-
-      playerGroup.position.set(
-        playerData.position.x,
-        playerData.position.y,
-        playerData.position.z
-      );
-      playerGroup.rotation.y = playerData.position.rotation;
-      playerGroup.castShadow = true;
-      
-      window.scene.add(playerGroup);
-
-      const nameTag = this.createNameTag(playerData.name, playerData.color);
-      playerGroup.add(nameTag);
-
-      this.otherPlayers.set(playerId, {
-        group: playerGroup,
-        name: playerData.name,
-        color: playerData.color,
-        avatar: playerData.avatar
+  await multiplayer.gameChannel.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      await multiplayer.gameChannel.track({
+        name: multiplayer.playerName,
+        color: multiplayer.playerColor,
+        avatar: selectedAvatar
       });
 
-      this.updatePlayersPanel();
-      console.log('Created other player:', playerId, playerData.name);
-    }
-  }
+      console.log('✅ Joined room:', roomId);
 
-  createNameTag(name, color) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
-    
-    context.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    context.font = '24px Arial';
-    context.fillStyle = '#FFFFFF';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(name, canvas.width / 2, canvas.height / 2);
-    
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture });
-    const sprite = new THREE.Sprite(material);
-    sprite.position.y = 5;
-    sprite.scale.set(10, 2.5, 1);
-    return sprite;
-  }
-
-  updateOtherPlayerPosition(playerId, position) {
-    const otherPlayer = this.otherPlayers.get(playerId);
-    if (otherPlayer && otherPlayer.group) {
-      otherPlayer.group.position.set(position.x, position.y, position.z);
-      otherPlayer.group.rotation.y = position.rotation;
-    }
-  }
-
-  removeOtherPlayer(playerId) {
-    const otherPlayer = this.otherPlayers.get(playerId);
-    if (otherPlayer && otherPlayer.group && window.scene) {
-      window.scene.remove(otherPlayer.group);
-      this.otherPlayers.delete(playerId);
-      this.updatePlayersPanel();
-    }
-  }
-
-  updatePlayersPanel() {
-    const playersList = document.getElementById('players-list');
-    const playerCount = document.getElementById('player-count');
-    
-    if (playersList && playerCount) {
-      playersList.innerHTML = '';
-      playerCount.textContent = this.otherPlayers.size + 1;
-      
-      const currentPlayerItem = document.createElement('div');
-      currentPlayerItem.className = 'player-item';
-      currentPlayerItem.innerHTML = `
-        <div class="player-color" style="background-color: #${this.playerColor.toString(16).padStart(6, '0')};"></div>
-        <div class="player-name">${this.playerName} (You)</div>
-      `;
-      playersList.appendChild(currentPlayerItem);
-      
-      this.otherPlayers.forEach((player, playerId) => {
-        const playerItem = document.createElement('div');
-        playerItem.className = 'player-item';
-        playerItem.innerHTML = `
-          <div class="player-color" style="background-color: #${player.color.toString(16).padStart(6, '0')};"></div>
-          <div class="player-name">${player.name}</div>
-        `;
-        playersList.appendChild(playerItem);
-      });
-    }
-  }
-
-  sendPositionUpdate() {
-    if (window.playerAvatar) {
-      this.sendPlayerData();
-    }
-  }
-
-  setupChat() {
-    const chatInput = document.getElementById('chat-input');
-    const chatSend = document.getElementById('chat-send');
-    
-    if (chatSend) {
-      chatSend.addEventListener('click', () => this.sendChatMessage());
-    }
-    
-    if (chatInput) {
-      chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          this.sendChatMessage();
-          // Close sidebar and reset camera when Enter is pressed
-          this.closeChatInterface();
-        }
-      });
-
-      if (!window.isMobile) {
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 't' || e.key === 'T') {
-            document.getElementById('sidebar').classList.add('active');
-            canMove = false;
-            document.querySelector('.modal-overlay').classList.add('active');
-            setTimeout(() => chatInput.focus(), 100);
-          }
-        });
+      // Update URL for sharing (without page reload)
+      if (!urlParams.has('room')) {
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('room', roomId);
+        window.history.replaceState({}, '', newUrl);
       }
-    }
-  }
 
-  sendChatMessage() {
-    const chatInput = document.getElementById('chat-input');
-    const message = chatInput.value.trim();
-    
-    if (message) {
-      const chatData = {
-        type: 'chat-message',
-        playerId: this.playerId,
-        sender: this.playerName,
-        text: message
-      };
-      
-      this.dataChannels.forEach((dataChannel, peerId) => {
-        if (dataChannel.readyState === 'open') {
-          dataChannel.send(JSON.stringify(chatData));
-        }
-      });
-      
-      this.addChatMessage(this.playerName, message, true);
-      createChatMessageBubble(this.playerId, this.playerName, message, true);
-      chatInput.value = '';
-    }
-  }
+      updateRoomInfoUI();
 
-  closeChatInterface() {
-    // Close sidebar
-    const sidebar = document.getElementById('sidebar');
-    const modalOverlay = document.querySelector('.modal-overlay');
-    
-    sidebar.classList.remove('active');
-    canMove = true;
-    modalOverlay.classList.remove('active');
-    
-    // Reset camera angle to current player direction
-    if (playerAvatar) {
-      targetCameraAngle = playerAvatar.rotation.y - Math.PI;
+      // Start sending position updates
+      setInterval(sendPositionUpdate, 100);
     }
-    
-    // Re-lock controls if they were locked before
-    if (controls && !isMobile) {
-      setTimeout(() => {
-        if (canMove && !controls.isLocked) {
-          controls.lock();
-        }
-      }, 100);
-    }
-  }
+  });
+}
 
-  addChatMessage(sender, message, isOwn) {
-    const chatMessages = document.getElementById('chat-messages');
-    if (chatMessages) {
-      const messageElement = document.createElement('div');
-      messageElement.className = 'chat-message';
-      
-      if (isOwn) {
-        messageElement.innerHTML = `<span class="chat-sender">You:</span> ${message}`;
-      } else {
-        messageElement.innerHTML = `<span class="chat-sender">${sender}:</span> ${message}`;
-      }
-      
-      chatMessages.appendChild(messageElement);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-  }
+// === Send position ===
+function sendPositionUpdate() {
+  if (!multiplayer.gameChannel || !playerAvatar) return;
 
-  disconnect() {
-    this.broadcastSignal({
-      type: 'player-left',
-      playerId: this.playerId
-    });
-    
-    this.peers.forEach((peerConnection, peerId) => peerConnection.close());
-    this.otherPlayers.forEach((player, playerId) => this.removeOtherPlayer(playerId));
-    if (this.signalingChannel) this.signalingChannel.close();
+  multiplayer.gameChannel.send({
+    type: 'broadcast',
+    event: 'player-move',
+    payload: {
+      playerId: multiplayer.playerId,
+      position: { x: playerAvatar.position.x, y: playerAvatar.position.y, z: playerAvatar.position.z },
+      rotation: playerAvatar.rotation.y
+    }
+  });
+}
+
+// === Send chat ===
+function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !multiplayer.gameChannel) return;
+
+  multiplayer.gameChannel.send({
+    type: 'broadcast',
+    event: 'chat-message',
+    payload: {
+      playerId: multiplayer.playerId,
+      sender: multiplayer.playerName,
+      text
+    }
+  });
+
+  addChatMessage(multiplayer.playerName, text, true);
+  createChatMessageBubble(multiplayer.playerId, multiplayer.playerName, text, true);
+  input.value = '';
+}
+
+// === Create other player ===
+function createOtherPlayerAvatar(playerId, data) {
+  if (multiplayer.otherPlayers.has(playerId)) return;
+
+  const group = new THREE.Group();
+
+  // Hoverboard
+  const board = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 10),
+    new THREE.MeshStandardMaterial({ color: data.color || 0x3B82F6, metalness: 0.8, roughness: 0.2, side: THREE.DoubleSide })
+  );
+  board.rotation.x = -Math.PI / 2;
+  board.castShadow = board.receiveShadow = true;
+  group.add(board);
+
+  // Body + Head
+  const avatar = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
+    new THREE.MeshLambertMaterial({ color: data.avatar === 'girl' ? 0xEC4899 : 0x3B82F6 })
+  );
+  body.position.y = 1.5;
+  avatar.add(body);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.6, 8, 8),
+    new THREE.MeshLambertMaterial({ color: 0xFCD34D })
+  );
+  head.position.y = 2.8;
+  avatar.add(head);
+
+  avatar.position.y = 0.1;
+  group.add(avatar);
+
+  group.position.set(-150, hoverHeight, -150);
+  scene.add(group);
+
+  // Name tag
+  group.add(createNameTag(data.name || 'Explorer', data.color || 0x3B82F6));
+
+  multiplayer.otherPlayers.set(playerId, { group, name: data.name, color: data.color, avatar: data.avatar });
+}
+
+// === Update position / remove player ===
+function updateOtherPlayerPosition(playerId, pos, rot) {
+  const p = multiplayer.otherPlayers.get(playerId);
+  if (p?.group) {
+    p.group.position.set(pos.x, pos.y, pos.z);
+    p.group.rotation.y = rot;
   }
 }
 
-// Clean up bots when leaving
-window.addEventListener('beforeunload', () => {
-  if (multiplayer) {
-    multiplayer.disconnect();
+function removeOtherPlayerAvatar(playerId) {
+  const p = multiplayer.otherPlayers.get(playerId);
+  if (p?.group) {
+    scene.remove(p.group);
+    multiplayer.otherPlayers.delete(playerId);
   }
-  if (botManager) {
-    botManager.dispose();
+  if (multiplayer.gameChannel) updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
+}
+
+// === Name tag ===
+function createNameTag(name, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = 'bold 24px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name, canvas.width / 2, canvas.height / 2);
+
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+  sprite.position.y = 5;
+  sprite.scale.set(10, 2.5, 1);
+  return sprite;
+}
+
+// === Update player list & count ===
+function updatePlayerCountAndList(state) {
+  if (!state) return;
+  const players = Object.values(state).flat();
+  const countEl = document.getElementById('player-count');
+  const listEl = document.getElementById('players-list');
+  if (countEl) countEl.textContent = players.length;
+  if (!listEl) return;
+
+  listEl.innerHTML = '';
+  players.forEach(p => {
+    const data = p.payload;
+    const isYou = p.key === multiplayer.playerId;
+    const item = document.createElement('div');
+    item.className = 'player-item' + (isYou ? ' self-player' : '');
+    item.innerHTML = `
+      <div class="player-color" style="background-color: #${(data.color || 0x3B82F6).toString(16).padStart(6, '0')}"></div>
+      <div class="player-name">${data.name || 'Explorer'} ${isYou ? '(You)' : ''}</div>
+    `;
+    listEl.appendChild(item);
+  });
+}
+
+// === Room info UI ===
+function updateRoomInfoUI() {
+  document.getElementById('current-room-id') && (
+    document.getElementById('current-room-id').textContent = multiplayer.currentRoomId.slice(-10)
+  );
+  document.getElementById('player-count-ingame') && (
+    document.getElementById('player-count-ingame').textContent =
+      multiplayer.gameChannel ? Object.keys(multiplayer.gameChannel.presenceState()).length : 1
+  );
+}
+
+// === Cleanup ===
+async function cleanupMultiplayer() {
+  if (multiplayer.gameChannel) {
+    await multiplayer.gameChannel.untrack();
+    multiplayer.gameChannel.unsubscribe();
   }
+  multiplayer.otherPlayers.forEach(p => p.group && scene && scene.remove(p.group));
+  multiplayer.otherPlayers.clear();
+}
+window.addEventListener('beforeunload', cleanupMultiplayer);
+
+// === Copy invite link button ===
+document.getElementById('copy-invite-btn')?.addEventListener('click', () => {
+  const url = new URL(window.location);
+  url.searchParams.set('room', multiplayer.currentRoomId);
+  navigator.clipboard.writeText(url.toString());
+  alert('Invite link copied! Share it so friends join your world.');
 });
 
+/* ==============================
+   UPDATE: Avatar confirm button → instant start
+============================== */
+function setupAvatarSelection() {
+  const avatarOptions = document.querySelectorAll('.avatar-option');
+  const confirmButton = document.getElementById('confirm-avatar');
+
+  avatarOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      avatarOptions.forEach(opt => opt.classList.remove('selected'));
+      option.classList.add('selected');
+      selectedAvatar = option.getAttribute('data-avatar');
+    });
+  });
+
+  confirmButton.addEventListener('click', async () => {
+    if (selectedAvatar) {
+      await autoJoinOrCreateRoom();  // ← Game starts instantly!
+    } else {
+      alert('Please select an avatar to continue');
+    }
+  });
+}
+
+/* ==============================
+   UPDATE: startGame() - remove old multiplayer init
+============================== */
+async function startGame() {
+  initSidebar();
+
+  // Removed: multiplayer = new WebRTCMultiplayer(); ← deleted
+  // Multiplayer now starts from avatar selection via autoJoinOrCreateRoom()
+
+  init3DScene();
+
+  botManager = new BotManager(scene, null, {  // pass null or keep old config, bots work independently
+    maxBots: 8,
+    roamRadius: worldBoundary * 0.9,
+    moveSpeed: 4.0,
+    detectionRange: 100,
+    interactionRange: 25,
+    stateDuration: 8000
+  });
+
+  loadNFTs();
+  initTokenSystem();
+  initBuildingOwnership();
+  setupBulletPurchaseWithTokens();
+
+  // Removed old position interval — now handled inside joinGameRoom()
+}
+
 console.log("NFT Shooter Universe initialized successfully!");
+                        
+        
+    
