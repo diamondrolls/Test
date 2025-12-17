@@ -470,69 +470,10 @@ document.addEventListener('DOMContentLoaded', function() {
     setupMobileControls();
   }
 
-  setupAvatarSelection();
+  // Avatar selection is now handled by the updated version at the bottom
+  // (the one that calls autoJoinOrCreateRoom() → startGame())
+  // No need to call setupAvatarSelection() here anymore
 });
-
-/* ==============================
-   AVATAR SELECTION SYSTEM
-============================== */
-
-function setupAvatarSelection() {
-  const avatarOptions = document.querySelectorAll('.avatar-option');
-  const confirmButton = document.getElementById('confirm-avatar');
-  
-  avatarOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      avatarOptions.forEach(opt => opt.classList.remove('selected'));
-      option.classList.add('selected');
-      selectedAvatar = option.getAttribute('data-avatar');
-    });
-  });
-
-  confirmButton.addEventListener('click', () => {
-    if (selectedAvatar) {
-      startGame();
-    } else {
-      alert('Please select an avatar to continue');
-    }
-  });
-}
-
-function startGame() {
-  initSidebar();
-  multiplayer = new WebRTCMultiplayer();
-  
-  const nameInput = document.getElementById('player-name');
-  if (nameInput && nameInput.value.trim()) {
-    multiplayer.playerName = nameInput.value.trim();
-  }
-  
-  multiplayer.playerColor = Math.random() * 0xFFFFFF;
-  document.getElementById('avatar-selection').style.display = 'none';
-  
-  init3DScene();
-  
-  // Initialize bot manager with expanded roaming
-  botManager = new BotManager(scene, multiplayer, {
-    maxBots: 8, // More bots for larger area
-    roamRadius: worldBoundary * 0.9, // Almost entire world
-    moveSpeed: 4.0, // Faster movement
-    detectionRange: 100, // Can detect players from farther
-    interactionRange: 25, // Larger interaction radius
-    stateDuration: 8000 // Longer states for more exploration
-  });
-  
-  loadNFTs();
-  initTokenSystem();
-  initBuildingOwnership();
-  setupBulletPurchaseWithTokens();
-  
-  setInterval(() => {
-    if (multiplayer) {
-      multiplayer.sendPositionUpdate();
-    }
-  }, 100);
-}
 
 /* ==============================
    OPTIMIZED NFT LOADING FUNCTIONS
@@ -3086,13 +3027,6 @@ function removeChatMessage(playerId) {
 }
 
 /* ==============================
-   FULL MULTIPLAYER REPLACEMENT - SUPABASE REALTIME
-   Instant start | Dynamic rooms | Shareable links | Max 15 players
-============================== */
-
-        
-  
-/* ==============================
    FULL MULTIPLAYER SYSTEM - SUPABASE REALTIME
    Instant start | Dynamic rooms | Shareable links | Max 15 players
 ============================== */
@@ -3155,18 +3089,32 @@ async function joinGameRoom(roomId) {
   multiplayer.gameChannel
     .on('presence', { event: 'sync' }, () => {
       const state = multiplayer.gameChannel.presenceState();
+      // Clear existing other players to sync fully
+      multiplayer.otherPlayers.forEach((p, id) => {
+        if (id !== multiplayer.playerId) removeOtherPlayerAvatar(id);
+      });
+      // Re-create from full state
+      Object.entries(state).forEach(([key, presences]) => {
+        if (key !== multiplayer.playerId && presences.length > 0) {
+          createOtherPlayerAvatar(key, presences[0]);
+        }
+      });
       updatePlayerCountAndList(state);
       updateRoomInfoUI();
     })
-    .on('presence', { event: 'join' }, ({ newPresences }) => {
-      newPresences.forEach(p => {
-        if (p.key !== multiplayer.playerId) {
-          createOtherPlayerAvatar(p.key, p.payload);
-        }
-      });
+    .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      if (key !== multiplayer.playerId && newPresences.length > 0) {
+        createOtherPlayerAvatar(key, newPresences[0]);
+      }
+      const state = multiplayer.gameChannel.presenceState();
+      updatePlayerCountAndList(state);
     })
-    .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-      leftPresences.forEach(p => removeOtherPlayerAvatar(p.key));
+    .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      if (key !== multiplayer.playerId) {
+        removeOtherPlayerAvatar(key);
+      }
+      const state = multiplayer.gameChannel.presenceState();
+      updatePlayerCountAndList(state);
     });
 
   // Broadcast: position & chat
@@ -3300,7 +3248,6 @@ function removeOtherPlayerAvatar(playerId) {
     scene.remove(p.group);
     multiplayer.otherPlayers.delete(playerId);
   }
-  if (multiplayer.gameChannel) updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
 }
 
 // === Name tag ===
@@ -3325,7 +3272,10 @@ function createNameTag(name, color) {
 // === Update player list & count ===
 function updatePlayerCountAndList(state) {
   if (!state) return;
-  const players = Object.values(state).flat();
+  const players = Object.entries(state).map(([key, presences]) => ({
+    key,
+    ...(presences[0] || {})
+  }));
   const countEl = document.getElementById('player-count');
   const listEl = document.getElementById('players-list');
   if (countEl) countEl.textContent = players.length;
@@ -3333,13 +3283,12 @@ function updatePlayerCountAndList(state) {
 
   listEl.innerHTML = '';
   players.forEach(p => {
-    const data = p.payload;
     const isYou = p.key === multiplayer.playerId;
     const item = document.createElement('div');
     item.className = 'player-item' + (isYou ? ' self-player' : '');
     item.innerHTML = `
-      <div class="player-color" style="background-color: #${(data.color || 0x3B82F6).toString(16).padStart(6, '0')}"></div>
-      <div class="player-name">${data.name || 'Explorer'} ${isYou ? '(You)' : ''}</div>
+      <div class="player-color" style="background-color: #${(p.color || 0x3B82F6).toString(16).padStart(6, '0')}"></div>
+      <div class="player-name">${p.name || 'Explorer'} ${isYou ? '(You)' : ''}</div>
     `;
     listEl.appendChild(item);
   });
@@ -3351,7 +3300,8 @@ function updateRoomInfoUI() {
   const countEl = document.getElementById('player-count-ingame');
   if (roomIdEl) roomIdEl.textContent = multiplayer.currentRoomId.slice(-10);
   if (countEl && multiplayer.gameChannel) {
-    countEl.textContent = Object.keys(multiplayer.gameChannel.presenceState()).length;
+    const state = multiplayer.gameChannel.presenceState();
+    countEl.textContent = Object.keys(state).length;
   }
 }
 
@@ -3392,6 +3342,7 @@ function setupAvatarSelection() {
   confirmButton.addEventListener('click', async () => {
     if (selectedAvatar) {
       await autoJoinOrCreateRoom();  // ← Game starts instantly!
+      startGame();  // Proceed to init scene etc. after multiplayer setup
     } else {
       alert('Please select an avatar to continue');
     }
@@ -3406,7 +3357,7 @@ async function startGame() {
 
   init3DScene();
 
-  botManager = new BotManager(scene, null, {
+  botManager = new BotManager(scene, multiplayer, {
     maxBots: 8,
     roamRadius: worldBoundary * 0.9,
     moveSpeed: 4.0,
@@ -3419,6 +3370,12 @@ async function startGame() {
   initTokenSystem();
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
+
+  setInterval(() => {
+    if (multiplayer) {
+      multiplayer.sendPositionUpdate();
+    }
+  }, 100);
 }
 
 console.log("NFT Shooter Universe initialized successfully!");
