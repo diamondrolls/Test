@@ -3057,7 +3057,7 @@ async function autoJoinOrCreateRoom() {
   if (nameInput && nameInput.value.trim()) {
     multiplayer.playerName = nameInput.value.trim();
   }
-  multiplayer.playerColor = Math.random() * 0xFFFFFF;
+  multiplayer.playerColor = Math.floor(Math.random() * 0xFFFFFF);
 
   // Check if joining via shared link (?room=...)
   const urlParams = new URLSearchParams(window.location.search);
@@ -3085,36 +3085,43 @@ async function joinGameRoom(roomId) {
     }
   });
 
+  // Helper to safely get payload
+  const getPresencePayload = (presences) => presences[0]?.payload || {};
+
   // Presence: who is online
   multiplayer.gameChannel
     .on('presence', { event: 'sync' }, () => {
       const state = multiplayer.gameChannel.presenceState();
-      // Clear existing other players to sync fully
-      multiplayer.otherPlayers.forEach((p, id) => {
-        if (id !== multiplayer.playerId) removeOtherPlayerAvatar(id);
-      });
-      // Re-create from full state
-      Object.entries(state).forEach(([key, presences]) => {
-        if (key !== multiplayer.playerId && presences.length > 0) {
-          createOtherPlayerAvatar(key, presences[0]);
+
+      // Remove all other players first to avoid duplicates
+      multiplayer.otherPlayers.forEach((playerData, pid) => {
+        if (pid !== multiplayer.playerId && playerData.group) {
+          scene.remove(playerData.group);
         }
       });
+      multiplayer.otherPlayers.clear();
+
+      // Re-create from current state
+      Object.entries(state).forEach(([key, presences]) => {
+        if (key !== multiplayer.playerId && presences.length > 0) {
+          const payload = getPresencePayload(presences);
+          createOtherPlayerAvatar(key, payload);
+        }
+      });
+
       updatePlayerCountAndList(state);
       updateRoomInfoUI();
     })
     .on('presence', { event: 'join' }, ({ key, newPresences }) => {
       if (key !== multiplayer.playerId && newPresences.length > 0) {
-        createOtherPlayerAvatar(key, newPresences[0]);
+        const payload = getPresencePayload(newPresences);
+        createOtherPlayerAvatar(key, payload);
       }
-      const state = multiplayer.gameChannel.presenceState();
-      updatePlayerCountAndList(state);
+      updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
     })
-    .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-      if (key !== multiplayer.playerId) {
-        removeOtherPlayerAvatar(key);
-      }
-      const state = multiplayer.gameChannel.presenceState();
-      updatePlayerCountAndList(state);
+    .on('presence', { event: 'leave' }, ({ key }) => {
+      removeOtherPlayerAvatar(key);
+      updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
     });
 
   // Broadcast: position & chat
@@ -3139,7 +3146,7 @@ async function joinGameRoom(roomId) {
 
       console.log('✅ Joined room:', roomId);
 
-      // Update URL for sharing (without page reload)
+      // Update URL for sharing (without reload)
       if (!new URLSearchParams(window.location.search).has('room')) {
         const newUrl = new URL(window.location);
         newUrl.searchParams.set('room', roomId);
@@ -3147,23 +3154,26 @@ async function joinGameRoom(roomId) {
       }
 
       updateRoomInfoUI();
-
-      // Start sending position updates
-      setInterval(sendPositionUpdate, 100);
     }
   });
 }
 
-// === Send position ===
+// === Send position (called from main animate loop) ===
 function sendPositionUpdate() {
-  if (!multiplayer.gameChannel || !playerAvatar) return;
+  if (!multiplayer.gameChannel || !playerAvatar || multiplayer.gameChannel.presenceState()[multiplayer.playerId] === undefined) {
+    return;
+  }
 
   multiplayer.gameChannel.send({
     type: 'broadcast',
     event: 'player-move',
     payload: {
       playerId: multiplayer.playerId,
-      position: { x: playerAvatar.position.x, y: playerAvatar.position.y, z: playerAvatar.position.z },
+      position: {
+        x: playerAvatar.position.x,
+        y: playerAvatar.position.y,
+        z: playerAvatar.position.z
+      },
       rotation: playerAvatar.rotation.y
     }
   });
@@ -3191,69 +3201,90 @@ function sendChatMessage() {
 }
 
 // === Create other player ===
-function createOtherPlayerAvatar(playerId, data) {
-  if (multiplayer.otherPlayers.has(playerId)) return;
+function createOtherPlayerAvatar(playerId, payload) {
+  if (multiplayer.otherPlayers.has(playerId)) {
+    // Update existing if needed (e.g., name/color change)
+    const existing = multiplayer.otherPlayers.get(playerId);
+    if (existing.name !== payload.name || existing.color !== payload.color) {
+      scene.remove(existing.group);
+    } else {
+      return; // already correct
+    }
+  }
 
   const group = new THREE.Group();
 
   // Hoverboard
   const board = new THREE.Mesh(
     new THREE.PlaneGeometry(10, 10),
-    new THREE.MeshStandardMaterial({ color: data.color || 0x3B82F6, metalness: 0.8, roughness: 0.2, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({
+      color: payload.color || 0x3B82F6,
+      metalness: 0.8,
+      roughness: 0.2,
+      side: THREE.DoubleSide
+    })
   );
   board.rotation.x = -Math.PI / 2;
   board.castShadow = board.receiveShadow = true;
   group.add(board);
 
   // Body + Head
-  const avatar = new THREE.Group();
+  const avatarGroup = new THREE.Group();
+  const bodyColor = payload.avatar === 'girl' ? 0xEC4899 : 0x3B82F6;
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
-    new THREE.MeshLambertMaterial({ color: data.avatar === 'girl' ? 0xEC4899 : 0x3B82F6 })
+    new THREE.MeshLambertMaterial({ color: bodyColor })
   );
   body.position.y = 1.5;
-  avatar.add(body);
+  avatarGroup.add(body);
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(0.6, 8, 8),
     new THREE.MeshLambertMaterial({ color: 0xFCD34D })
   );
   head.position.y = 2.8;
-  avatar.add(head);
+  avatarGroup.add(head);
 
-  avatar.position.y = 0.1;
-  group.add(avatar);
+  avatarGroup.position.y = 0.1;
+  group.add(avatarGroup);
 
   group.position.set(-150, hoverHeight, -150);
   scene.add(group);
 
-  // Name tag
-  group.add(createNameTag(data.name || 'Explorer', data.color || 0x3B82F6));
+  // Name tag (billboarded sprite)
+  group.add(createNameTag(payload.name || 'Explorer', payload.color || 0x3B82F6));
 
-  multiplayer.otherPlayers.set(playerId, { group, name: data.name, color: data.color, avatar: data.avatar });
+  multiplayer.otherPlayers.set(playerId, {
+    group,
+    name: payload.name || 'Explorer',
+    color: payload.color || 0x3B82F6,
+    avatar: payload.avatar
+  });
 }
 
-// === Update position / remove player ===
+// === Update position ===
 function updateOtherPlayerPosition(playerId, pos, rot) {
-  const p = multiplayer.otherPlayers.get(playerId);
-  if (p?.group) {
-    p.group.position.set(pos.x, pos.y, pos.z);
-    p.group.rotation.y = rot;
+  const playerData = multiplayer.otherPlayers.get(playerId);
+  if (playerData?.group) {
+    playerData.group.position.set(pos.x, pos.y, pos.z);
+    playerData.group.rotation.y = rot;
   }
 }
 
+// === Remove player ===
 function removeOtherPlayerAvatar(playerId) {
-  const p = multiplayer.otherPlayers.get(playerId);
-  if (p?.group) {
-    scene.remove(p.group);
-    multiplayer.otherPlayers.delete(playerId);
+  const playerData = multiplayer.otherPlayers.get(playerId);
+  if (playerData?.group) {
+    scene.remove(playerData.group);
   }
+  multiplayer.otherPlayers.delete(playerId);
 }
 
-// === Name tag ===
+// === Name tag (billboard sprite) ===
 function createNameTag(name, color) {
   const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 64;
+  canvas.width = 256;
+  canvas.height = 64;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -3263,7 +3294,12 @@ function createNameTag(name, color) {
   ctx.textBaseline = 'middle';
   ctx.fillText(name, canvas.width / 2, canvas.height / 2);
 
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(canvas),
+      transparent: true
+    })
+  );
   sprite.position.y = 5;
   sprite.scale.set(10, 2.5, 1);
   return sprite;
@@ -3271,14 +3307,19 @@ function createNameTag(name, color) {
 
 // === Update player list & count ===
 function updatePlayerCountAndList(state) {
-  if (!state) return;
   const players = Object.entries(state).map(([key, presences]) => ({
     key,
-    ...(presences[0] || {})
+    ...(getPresencePayload(presences))
   }));
+
   const countEl = document.getElementById('player-count');
+  const ingameCountEl = document.getElementById('player-count-ingame');
   const listEl = document.getElementById('players-list');
-  if (countEl) countEl.textContent = players.length;
+
+  const total = players.length;
+  if (countEl) countEl.textContent = total;
+  if (ingameCountEl) ingameCountEl.textContent = total;
+
   if (!listEl) return;
 
   listEl.innerHTML = '';
@@ -3297,32 +3338,31 @@ function updatePlayerCountAndList(state) {
 // === Room info UI ===
 function updateRoomInfoUI() {
   const roomIdEl = document.getElementById('current-room-id');
-  const countEl = document.getElementById('player-count-ingame');
-  if (roomIdEl) roomIdEl.textContent = multiplayer.currentRoomId.slice(-10);
-  if (countEl && multiplayer.gameChannel) {
-    const state = multiplayer.gameChannel.presenceState();
-    countEl.textContent = Object.keys(state).length;
+  if (roomIdEl && multiplayer.currentRoomId) {
+    roomIdEl.textContent = multiplayer.currentRoomId.slice(-10);
   }
 }
 
-// === Cleanup ===
+// === Cleanup on unload ===
 async function cleanupMultiplayer() {
   if (multiplayer.gameChannel) {
     await multiplayer.gameChannel.untrack();
-    multiplayer.gameChannel.unsubscribe();
+    await multiplayer.gameChannel.unsubscribe();
   }
   multiplayer.otherPlayers.forEach(p => p.group && scene && scene.remove(p.group));
   multiplayer.otherPlayers.clear();
 }
 window.addEventListener('beforeunload', cleanupMultiplayer);
 
-// === Copy invite link button ===
+// === Copy invite link ===
 document.getElementById('copy-invite-btn')?.addEventListener('click', () => {
   const url = new URL(window.location);
   url.searchParams.set('room', multiplayer.currentRoomId);
-  navigator.clipboard.writeText(url.toString());
-  alert('Invite link copied! Share it so friends join your world.');
+  navigator.clipboard.writeText(url.toString()).then(() => {
+    alert('Invite link copied! Share it so friends join your world.');
+  });
 });
+  
 
 /* ==============================
    AVATAR SELECTION → INSTANT START
