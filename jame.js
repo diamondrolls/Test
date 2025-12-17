@@ -4,8 +4,6 @@
 const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
 const TOKEN_FUNCTION_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens";
-// Replace with your actual project URL, e.g.:
-// https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
@@ -472,10 +470,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('mobile-instructions').style.display = 'block';
     setupMobileControls();
   }
-
-  // Avatar selection is now handled by the updated version at the bottom
-  // (the one that calls autoJoinOrCreateRoom() → startGame())
-  // No need to call setupAvatarSelection() here anymore
 });
 
 /* ==============================
@@ -588,24 +582,32 @@ function calculateNFTPosition(index, total) {
   };
 }
 
+
+    // REPLACE processLoadingQueue()
 async function processLoadingQueue() {
   if (isProcessingQueue || nftLoadingQueue.length === 0) return;
   
   isProcessingQueue = true;
-  
-  while (nftLoadingQueue.length > 0) {
-    while (activeLoads >= MAX_CONCURRENT_LOADS) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
+
+  // Process up to MAX_CONCURRENT_LOADS in parallel, no artificial delays
+  while (nftLoadingQueue.length > 0 && activeLoads < MAX_CONCURRENT_LOADS) {
     const item = nftLoadingQueue.shift();
     if (item) {
       activeLoads++;
       loadNFTTexture(item).finally(() => {
         activeLoads--;
+        // Continue processing if more items
+        if (nftLoadingQueue.length > 0 && activeLoads < MAX_CONCURRENT_LOADS) {
+          processLoadingQueue();
+        }
       });
     }
-    
+  }
+
+  isProcessingQueue = false;
+}
+
+
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   
@@ -613,44 +615,33 @@ async function processLoadingQueue() {
 }
 
 function loadNFTTexture({ nft, placeholder, position }) {
-  return new Promise((resolve) => {
-    const imageUrl = nft.image_url || 'https://via.placeholder.com/400x400?text=NFT+Image';
-    
-    if (nftCache.has(imageUrl)) {
-      applyTextureToNFT(placeholder, nftCache.get(imageUrl), nft);
-      resolve();
-      return;
-    }
-    
-    const loadTimeout = setTimeout(() => {
-      console.warn(`Timeout loading NFT: ${nft.name || nft.token_id}`);
-      resolve();
-    }, 10000);
-    
-    textureLoader.load(
-      imageUrl,
-      (texture) => {
-        clearTimeout(loadTimeout);
-        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-        texture.minFilter = THREE.LinearMipmapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.generateMipmaps = true;
-        nftCache.set(imageUrl, texture);
-        applyTextureToNFT(placeholder, texture, nft);
-        resolve();
-      },
-      (progress) => {
-        if (progress.lengthComputable) {
-          const percent = (progress.loaded / progress.total) * 100;
-        }
-      },
-      (error) => {
-        clearTimeout(loadTimeout);
-        console.error('Error loading NFT image:', error, imageUrl);
-        resolve();
-      }
-    );
+// REPLACE loadNFTTexturesProgressive()
+async function loadNFTTexturesProgressive(nfts) {
+  // Sort by priority (closest first)
+  const priorities = nfts.map((nft, index) => {
+    const position = calculateNFTPosition(index, nfts.length);
+    const distance = playerAvatar ? new THREE.Vector3(position.x, position.y, position.z).distanceTo(playerAvatar.position) : Infinity;
+    return { nft, index, distance };
   });
+
+  priorities.sort((a, b) => a.distance - b.distance);
+
+  // Load in order, respecting concurrent limit
+  for (const item of priorities) {
+    while (activeLoads >= MAX_CONCURRENT_LOADS) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+
+    const nftObj = nftObjects[item.index];
+    if (nftObj && nftObj.userData.isPlaceholder) {
+      activeLoads++;
+      loadNFTTexture({
+        nft: item.nft,
+        placeholder: nftObj,
+        position: nftObj.position
+      }).finally(() => activeLoads--);
+    }
+  }
 }
 
 function applyTextureToNFT(placeholder, texture, nftData) {
