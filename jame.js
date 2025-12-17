@@ -3,6 +3,9 @@
 ============================== */
 const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
+const TOKEN_FUNCTION_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens";
+// Replace with your actual project URL, e.g.:
+// https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
