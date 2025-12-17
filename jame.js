@@ -3411,11 +3411,7 @@ async function startGame() {
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
 
-  setInterval(() => {
-    if (multiplayer) {
-      multiplayer.sendPositionUpdate();
-    }
-  }, 100);
+
 }
 
 console.log("NFT Shooter Universe initialized successfully!");
