@@ -470,6 +470,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('mobile-instructions').style.display = 'block';
     setupMobileControls();
   }
+   setupAvatarSelection();
 });
 
 /* ==============================
