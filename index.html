@@ -1140,10 +1140,17 @@
   <button id="confirm-avatar">Start Exploring</button>
 </div>
 
+<!-- Replace your old <script src="jame.js"></script> with this -->
 <script type="module">
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
   import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/controls/PointerLockControls.js';
 
+  // Expose to global scope so your existing jame.js works without changes
+  window.THREE = THREE;
+  window.PointerLockControls = PointerLockControls;
+
+  // Load your game logic
   import './jame.js';
-</script></body>
+</script>
+</body>
 </html>
