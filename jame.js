@@ -104,6 +104,14 @@ let selectedAvatar = null;
 // Assistant Bots
 let botManager;
 
+/* ==============================
+   NFT LOADING GLOBALS
+============================== */
+const nftLoadingQueue = [];
+let activeLoads = 0;
+const MAX_CONCURRENT_LOADS = 3;
+const nftCache = new Map();
+const textureLoader = new THREE.TextureLoader(); // ← THIS WAS MISSING!
 
 /* ==============================
    ASSISTANT BOT ROAMING SYSTEM
