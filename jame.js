@@ -586,8 +586,8 @@ document.addEventListener('DOMContentLoaded', function() {
    setupAvatarSelection();
 });
 
-/* ==============================
-   OPTIMIZED NFT LOADING FUNCTIONS
+   /* ==============================
+   OPTIMIZED NFT LOADING FUNCTIONS (CLEAN & WORKING)
 ============================== */
 
 async function loadNFTs() {
@@ -595,7 +595,7 @@ async function loadNFTs() {
     console.time('NFT Loading');
     clearNFTs();
     
-    const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false });
+    const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false }).limit(100); // Optional: limit for testing
 
     if (error) {
       console.error("Error loading NFTs:", error);
@@ -607,9 +607,9 @@ async function loadNFTs() {
       return;
     }
 
-    console.log(`Loading ${data.length} NFTs with optimized system`);
+    console.log(`Loading ${data.length} NFTs`);
     createNFTPlaceholders(data);
-    await loadNFTTexturesProgressive(data);
+    processLoadingQueue(); // Start the queue — no await needed here
     console.timeEnd('NFT Loading');
     
   } catch (err) {
@@ -618,25 +618,16 @@ async function loadNFTs() {
 }
 
 function clearNFTs() {
-  const removeBatch = (objects) => {
-    objects.forEach(obj => {
-      scene.remove(obj);
-      if (obj.userData?.glow) scene.remove(obj.userData.glow);
-      if (obj.material) {
-        if (obj.material.map) obj.material.map.dispose();
-        obj.material.dispose();
-      }
-      if (obj.geometry) obj.geometry.dispose();
-    });
-  };
-
-  const batchSize = 10;
-  for (let i = 0; i < nftObjects.length; i += batchSize) {
-    const batch = nftObjects.slice(i, i + batchSize);
-    setTimeout(() => removeBatch(batch), 0);
-  }
+  nftObjects.forEach(obj => {
+    scene.remove(obj);
+    if (obj.userData?.glow) scene.remove(obj.userData.glow);
+    if (obj.material?.map) obj.material.map.dispose();
+    obj.material?.dispose();
+    obj.geometry?.dispose();
+  });
   
   nftObjects = [];
+  
   nftPlatforms.forEach(platform => scene.remove(platform));
   nftPlatforms = [];
 }
@@ -660,101 +651,66 @@ function createNFTPlaceholders(nfts) {
     placeholder.userData = {
       nftData: nft,
       isNFT: true,
-      isPlaceholder: true,
-      originalEmissive: 0x000000
+      isPlaceholder: true
     };
     
-    placeholder.castShadow = true;
-    placeholder.receiveShadow = true;
     scene.add(placeholder);
     nftObjects.push(placeholder);
     
-    nftLoadingQueue.push({
-      nft,
-      placeholder,
-      position
-    });
+    nftLoadingQueue.push({ nft, placeholder, position });
   });
-
-  processLoadingQueue();
 }
 
 function calculateNFTPosition(index, total) {
   const columnHeight = 500;
-  const baseX = 0;
-  const baseZ = 0;
   const maxRadius = 40;
   
   const height = (index / total) * columnHeight;
   const radius = (index % 2 === 0 ? 0.3 : 0.7) * maxRadius;
-  const angle = (index * 137.5) % 360 * (Math.PI / 180);
+  const angle = (index * 137.5) * (Math.PI / 180);
   
   return {
-    x: baseX + Math.cos(angle) * radius,
+    x: Math.cos(angle) * radius,
     y: height + 10,
-    z: baseZ + Math.sin(angle) * radius
+    z: Math.sin(angle) * radius
   };
 }
 
-
-    // REPLACE processLoadingQueue()
 async function processLoadingQueue() {
-  if (isProcessingQueue || nftLoadingQueue.length === 0) return;
-  
-  isProcessingQueue = true;
-
-  // Process up to MAX_CONCURRENT_LOADS in parallel, no artificial delays
-  while (nftLoadingQueue.length > 0 && activeLoads < MAX_CONCURRENT_LOADS) {
-    const item = nftLoadingQueue.shift();
-    if (item) {
-      activeLoads++;
-      loadNFTTexture(item).finally(() => {
-        activeLoads--;
-        // Continue processing if more items
-        if (nftLoadingQueue.length > 0 && activeLoads < MAX_CONCURRENT_LOADS) {
-          processLoadingQueue();
-        }
-      });
-    }
+  if (nftLoadingQueue.length === 0 || activeLoads >= MAX_CONCURRENT_LOADS) {
+    // Queue empty or at limit — wait a frame and try again
+    if (nftLoadingQueue.length > 0) requestAnimationFrame(processLoadingQueue);
+    return;
   }
 
-  isProcessingQueue = false;
+  const item = nftLoadingQueue.shift();
+  activeLoads++;
+
+  loadNFTTexture(item)
+    .finally(() => {
+      activeLoads--;
+      processLoadingQueue(); // Continue processing
+    });
 }
 
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  
-  isProcessingQueue = false;
-}
-
-function loadNFTTexture({ nft, placeholder, position }) {
-// REPLACE loadNFTTexturesProgressive()
-async function loadNFTTexturesProgressive(nfts) {
-  // Sort by priority (closest first)
-  const priorities = nfts.map((nft, index) => {
-    const position = calculateNFTPosition(index, nfts.length);
-    const distance = playerAvatar ? new THREE.Vector3(position.x, position.y, position.z).distanceTo(playerAvatar.position) : Infinity;
-    return { nft, index, distance };
-  });
-
-  priorities.sort((a, b) => a.distance - b.distance);
-
-  // Load in order, respecting concurrent limit
-  for (const item of priorities) {
-    while (activeLoads >= MAX_CONCURRENT_LOADS) {
-      await new Promise(resolve => requestAnimationFrame(resolve));
+async function loadNFTTexture({ nft, placeholder }) {
+  try {
+    // Use cache if available
+    if (nftCache.has(nft.image_url)) {
+      applyTextureToNFT(placeholder, nftCache.get(nft.image_url), nft);
+      return;
     }
 
-    const nftObj = nftObjects[item.index];
-    if (nftObj && nftObj.userData.isPlaceholder) {
-      activeLoads++;
-      loadNFTTexture({
-        nft: item.nft,
-        placeholder: nftObj,
-        position: nftObj.position
-      }).finally(() => activeLoads--);
-    }
+    const texture = await textureLoader.loadAsync(nft.image_url);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    nftCache.set(nft.image_url, texture);
+    manageNFTCache();
+
+    applyTextureToNFT(placeholder, texture, nft);
+  } catch (err) {
+    console.error(`Failed to load texture for NFT: ${nft.image_url}`, err);
+    // Optional: show error placeholder
   }
 }
 
@@ -769,7 +725,9 @@ function applyTextureToNFT(placeholder, texture, nftData) {
   placeholder.material.dispose();
   placeholder.material = finalMaterial;
   placeholder.userData.isPlaceholder = false;
-  
+  placeholder.userData.nftData = nftData;
+
+  // Glow effect
   const glowGeometry = new THREE.PlaneGeometry(10.5, 10.5);
   const glowMaterial = new THREE.MeshBasicMaterial({ 
     color: 0x3b82f6,
@@ -784,71 +742,6 @@ function applyTextureToNFT(placeholder, texture, nftData) {
   scene.add(glow);
   
   placeholder.userData.glow = glow;
-  placeholder.userData.nftData = nftData;
-}
-
-async function loadNFTTexturesProgressive(nfts) {
-  const priorities = [];
-  
-  nfts.forEach((nft, index) => {
-    const position = calculateNFTPosition(index, nfts.length);
-    const distance = playerAvatar ? position.distanceTo(playerAvatar.position) : 1000;
-    priorities.push({
-      nft,
-      index,
-      distance,
-      priority: distance < 200 ? 0 : distance < 500 ? 1 : 2
-    });
-  });
-  
-  priorities.sort((a, b) => a.priority - b.priority);
-  
-  for (const item of priorities) {
-    while (activeLoads >= MAX_CONCURRENT_LOADS) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    activeLoads++;
-    const nftObj = nftObjects[item.index];
-    if (nftObj && nftObj.userData.isPlaceholder) {
-      loadNFTTexture({
-        nft: item.nft,
-        placeholder: nftObj,
-        position: nftObj.position
-      }).finally(() => {
-        activeLoads--;
-      });
-    } else {
-      activeLoads--;
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 30));
-  }
-}
-
-function updateNFTLOD() {
-  if (!playerAvatar) return;
-  
-  nftObjects.forEach((nft, index) => {
-    const distance = nft.position.distanceTo(playerAvatar.position);
-    
-    if (distance > 500 && nft.userData.isPlaceholder === false) {
-      nft.material.opacity = 0.7;
-    } else if (distance <= 500 && nft.userData.isPlaceholder === false) {
-      nft.material.opacity = 0.9;
-    }
-    
-    if (distance < 200 && nft.userData.isPlaceholder) {
-      const queueItem = nftLoadingQueue.find(item => item.placeholder === nft);
-      if (!queueItem) {
-        loadNFTTexture({
-          nft: nft.userData.nftData,
-          placeholder: nft,
-          position: nft.position
-        });
-      }
-    }
-  });
 }
 
 function manageNFTCache() {
@@ -864,7 +757,6 @@ function manageNFTCache() {
 }
 
 setInterval(manageNFTCache, 30000);
-
 /* ==============================
    TOKEN ECONOMY SYSTEM
 ============================== */
