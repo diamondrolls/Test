@@ -3267,8 +3267,9 @@ function setupAvatarSelection() {
 
   confirmButton.addEventListener('click', async () => {
     if (selectedAvatar) {
-      await autoJoinOrCreateRoom();  // ← Game starts instantly!
-      startGame();  // Proceed to init scene etc. after multiplayer setup
+      // Only call autoJoinOrCreateRoom() — it now handles startGame() internally
+      await autoJoinOrCreateRoom();
+      // ← Removed the second startGame() call here!
     } else {
       alert('Please select an avatar to continue');
     }
