@@ -62,6 +62,7 @@ let miniMapScene, miniMapCamera, miniMapRenderer;
 let playerAvatar;
 let clock = new THREE.Clock();
 let prevTime = 0;
+let lastSendTime = 0;
 
 // Camera controls
 let cameraDistance = 25;
