@@ -2545,7 +2545,12 @@ function animate() {
   if (window.updateMiniMap) {
     window.updateMiniMap();
   }
-  
+  if (!lastSendTime) lastSendTime = 0;  // Init on first frame
+  const now = performance.now();
+  if (now - lastSendTime > 100) {  // Throttle: 10 updates/sec max
+    sendPositionUpdate();
+    lastSendTime = now;
+  }
   prevTime = time;
   renderer.render(scene, camera);
 }
