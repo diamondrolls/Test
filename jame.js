@@ -649,6 +649,19 @@ setInterval(manageNFTCache, 30000);
 ============================== */
 
 async function initTokenSystem() {
+  const requiredIds = [
+    'token-balance',
+    'building-token-balance',
+    'bullet-token-balance',
+    'transfer-token-balance'
+  ];
+
+  const hasTokenUI = requiredIds.every(id => document.getElementById(id));
+  if (!hasTokenUI) {
+    console.warn('Token UI elements not found; skipping token system initialization.');
+    return;
+  }
+
   await loadTokenBalance();
   setupTokenTransfer();
   setupTokenPurchase();
@@ -680,10 +693,15 @@ async function loadTokenBalance() {
 }
 
 function updateTokenDisplay() {
-  document.getElementById('token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('building-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('bullet-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('transfer-token-balance').textContent = playerStats.gameTokens;
+  const tokenBalance = document.getElementById('token-balance');
+  const buildingTokenBalance = document.getElementById('building-token-balance');
+  const bulletTokenBalance = document.getElementById('bullet-token-balance');
+  const transferTokenBalance = document.getElementById('transfer-token-balance');
+
+  if (tokenBalance) tokenBalance.textContent = playerStats.gameTokens;
+  if (buildingTokenBalance) buildingTokenBalance.textContent = playerStats.gameTokens;
+  if (bulletTokenBalance) bulletTokenBalance.textContent = playerStats.gameTokens;
+  if (transferTokenBalance) transferTokenBalance.textContent = playerStats.gameTokens;
   
   const transferAmountInput = document.getElementById('transfer-amount');
   if (transferAmountInput) {
@@ -735,9 +753,18 @@ async function removeTokens(amount) {
 ============================== */
 
 function setupTokenTransfer() {
-  document.getElementById('transfer-token-btn-sidebar').addEventListener('click', openTokenTransferModal);
-  document.getElementById('transfer-token-confirm').addEventListener('click', transferTokensToWallet);
-  document.getElementById('close-transfer-modal').addEventListener('click', closeTokenTransferModal);
+  const transferBtn = document.getElementById('transfer-token-btn-sidebar');
+  const confirmBtn = document.getElementById('transfer-token-confirm');
+  const closeBtn = document.getElementById('close-transfer-modal');
+
+  if (!transferBtn || !confirmBtn || !closeBtn) {
+    console.warn('Token transfer UI not found; skipping transfer setup.');
+    return;
+  }
+
+  transferBtn.addEventListener('click', openTokenTransferModal);
+  confirmBtn.addEventListener('click', transferTokensToWallet);
+  closeBtn.addEventListener('click', closeTokenTransferModal);
 }
 
 function openTokenTransferModal() {
@@ -819,10 +846,20 @@ async function mintNFTs(toAddress, amount) {
 ============================== */
 
 function setupTokenPurchase() {
-  document.getElementById('purchase-token-btn-sidebar').addEventListener('click', openTokenPurchaseModal);
-  document.getElementById('purchase-token-cards').addEventListener('click', openTokenPurchaseModal);
-  document.getElementById('buy-250-token').addEventListener('click', purchaseTokens);
-  document.getElementById('close-token-purchase-modal').addEventListener('click', closeTokenPurchaseModal);
+  const sidebarPurchaseBtn = document.getElementById('purchase-token-btn-sidebar');
+  const purchaseCardsBtn = document.getElementById('purchase-token-cards');
+  const buy250Btn = document.getElementById('buy-250-token');
+  const closeBtn = document.getElementById('close-token-purchase-modal');
+
+  if (!sidebarPurchaseBtn || !purchaseCardsBtn || !buy250Btn || !closeBtn) {
+    console.warn('Token purchase UI not found; skipping purchase setup.');
+    return;
+  }
+
+  sidebarPurchaseBtn.addEventListener('click', openTokenPurchaseModal);
+  purchaseCardsBtn.addEventListener('click', openTokenPurchaseModal);
+  buy250Btn.addEventListener('click', purchaseTokens);
+  closeBtn.addEventListener('click', closeTokenPurchaseModal);
 }
 
 function openTokenPurchaseModal() {
@@ -1095,7 +1132,10 @@ function openBuildingModal(buildingId, buildingIndex) {
     
   document.getElementById('building-price').textContent = displayPrice;
   document.getElementById('building-owner-name').textContent = buildingData.ownerName || '-';
-  document.getElementById('building-cost-display').textContent = buildingData.forSale ? buildingData.salePrice : GAME_CONFIG.BUILDING_BASE_COST;
+  const buildingCostDisplay = document.getElementById('building-cost-display');
+  if (buildingCostDisplay) {
+    buildingCostDisplay.textContent = buildingData.forSale ? buildingData.salePrice : GAME_CONFIG.BUILDING_BASE_COST;
+  }
   
   updateTokenDisplay();
   
@@ -1110,7 +1150,10 @@ function openBuildingModal(buildingId, buildingIndex) {
     document.getElementById('new-price').value = currentSalePrice;
     document.getElementById('new-price').min = GAME_CONFIG.BUILDING_BASE_COST;
     document.getElementById('new-price').max = GAME_CONFIG.MAX_SALE_PRICE;
-    document.getElementById('cancel-sale').style.display = buildingData.forSale ? 'block' : 'none';
+    const cancelSaleBtn = document.getElementById('cancel-sale');
+    if (cancelSaleBtn) {
+      cancelSaleBtn.style.display = buildingData.forSale ? 'block' : 'none';
+    }
     
   } else {
     document.getElementById('purchase-section').style.display = 'block';
@@ -1405,9 +1448,13 @@ function updateOwnedBuildingsUI() {
 ============================== */
 
 function setupBulletPurchaseWithTokens() {
-  document.getElementById('buy-500-token').addEventListener('click', buyBulletsWithToken);
-  document.getElementById('buy-100').addEventListener('click', () => buyBullets(100));
-  document.getElementById('close-bullet-modal').addEventListener('click', closeBulletPurchaseModal);
+  const buy500Btn = document.getElementById('buy-500-nft');
+  const buy100Btn = document.getElementById('buy-100');
+  const closeBtn = document.getElementById('close-bullet-modal');
+
+  if (buy500Btn) buy500Btn.addEventListener('click', buyBulletsWithToken);
+  if (buy100Btn) buy100Btn.addEventListener('click', () => buyBullets(100));
+  if (closeBtn) closeBtn.addEventListener('click', closeBulletPurchaseModal);
 }
 
 async function buyBulletsWithToken() {
@@ -1438,7 +1485,10 @@ async function buyBulletsWithToken() {
 
 function showBulletPurchaseModal() {
   if (!canMove) return;
-  document.getElementById('bullet-token-balance').textContent = playerStats.gameTokens;
+  const tokenBalanceEl = document.getElementById('bullet-token-balance');
+  const nftBalanceEl = document.getElementById('bullet-nft-balance');
+  if (tokenBalanceEl) tokenBalanceEl.textContent = playerStats.gameTokens;
+  if (nftBalanceEl) nftBalanceEl.textContent = playerStats.gameTokens;
   document.getElementById('bullet-modal').style.display = 'block';
 }
 
@@ -2874,6 +2924,7 @@ async function autoJoinOrCreateRoom() {
   document.getElementById('avatar-selection').style.display = 'none';
 
   await joinGameRoom(roomId);
+  await startGame();
 }
 
 // === Join a game room (new or existing) ===
