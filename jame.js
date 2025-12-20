@@ -1742,6 +1742,497 @@ async function connectWallet() {
 document.getElementById("connectBtn").addEventListener("click", connectWallet);
 
 /* ==============================
+   WORLD BUILDING & SUPPORT FUNCTIONS
+============================== */
+
+// Ground + main city
+function createCity() {
+  const cityGroup = new THREE.Group();
+  const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
+  const gridSize = 8;
+  const spacing = 150;
+
+  for (let x = 0; x < gridSize; x++) {
+    for (let z = 0; z < gridSize; z++) {
+      const width = 40 + Math.random() * 30;
+      const depth = 40 + Math.random() * 30;
+      const height = 20 + Math.random() * 40;
+
+      const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+
+      const buildingMaterial = new THREE.MeshPhysicalMaterial({
+        color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+        roughness: 0.1,
+        metalness: 0.3,
+        transmission: 0.9,
+        thickness: 2.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+
+      const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+      building.position.set(
+        (x - gridSize / 2) * spacing,
+        height / 2,
+        (z - gridSize / 2) * spacing - 100
+      );
+
+      building.castShadow = true;
+      building.receiveShadow = true;
+      cityGroup.add(building);
+      buildingObjects.push(building);
+
+      const buildingBox = new THREE.Box3().setFromObject(building);
+      collisionObjects.push(buildingBox);
+
+      createBuildingRoof(building.position.x, building.position.y + height / 2, building.position.z, width, depth);
+    }
+  }
+  scene.add(cityGroup);
+}
+
+// Upper platform + smaller city on top of the bridge
+function createUpperPlatform() {
+  const upperGroundGeometry = new THREE.PlaneGeometry(500, 500);
+  const upperGroundMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x88ffaa,
+    transparent: true,
+    opacity: 0.55,
+    transmission: 0.9,
+    roughness: 0,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  const upperGround = new THREE.Mesh(upperGroundGeometry, upperGroundMaterial);
+  upperGround.rotation.x = -Math.PI / 2;
+  upperGround.position.set(50, 750, 0);
+  upperGround.receiveShadow = true;
+  scene.add(upperGround);
+
+  const upperCityGroup = new THREE.Group();
+  const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
+  const gridSize = 4;
+  const spacing = 100;
+
+  for (let x = 0; x < gridSize; x++) {
+    for (let z = 0; z < gridSize; z++) {
+      const width = 30 + Math.random() * 20;
+      const depth = 30 + Math.random() * 20;
+      const height = 15 + Math.random() * 30;
+
+      const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+
+      const buildingMaterial = new THREE.MeshPhysicalMaterial({
+        color: buildingColors[Math.floor(Math.random() * buildingColors.length)],
+        roughness: 0.1,
+        metalness: 0.4,
+        transmission: 0.92,
+        thickness: 2.5,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        transparent: true,
+        opacity: 0.6,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+
+      const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+      building.position.set(
+        50 + (x - gridSize / 2) * spacing,
+        750 + height / 2,
+        (z - gridSize / 2) * spacing
+      );
+
+      building.castShadow = true;
+      building.receiveShadow = true;
+      upperCityGroup.add(building);
+      buildingObjects.push(building);
+
+      const buildingBox = new THREE.Box3().setFromObject(building);
+      collisionObjects.push(buildingBox);
+
+      createBuildingRoof(building.position.x, building.position.y + height / 2, building.position.z, width, depth);
+    }
+  }
+  scene.add(upperCityGroup);
+}
+
+// Spiral moon bridge
+function createMoonBridge() {
+  const bridgeGroup = new THREE.Group();
+  const bridgeMaterial = new THREE.MeshLambertMaterial({
+    color: 0x00FFFF,
+    transparent: true,
+    opacity: 0.7
+  });
+
+  const bridgeWidth = 20;
+  const bridgeHeight = 5;
+  const segments = 200;
+  bridgeSegments = [];
+
+  for (let i = 0; i < segments; i++) {
+    const t = i / segments;
+    const nextT = (i + 1) / segments;
+
+    const spiralTurns = 4;
+    const startRadius = 350;
+    const endRadius = 50;
+    const totalHeight = 750;
+    const radius = startRadius - (t * (startRadius - endRadius));
+    const angle = t * Math.PI * 2 * spiralTurns;
+
+    const x1 = Math.cos(angle) * radius;
+    const z1 = Math.sin(angle) * radius;
+    const y1 = t * totalHeight;
+
+    const nextAngle = nextT * Math.PI * 2 * spiralTurns;
+    const nextRadius = startRadius - (nextT * (startRadius - endRadius));
+    const x2 = Math.cos(nextAngle) * nextRadius;
+    const z2 = Math.sin(nextAngle) * nextRadius;
+    const y2 = nextT * totalHeight;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dz = z2 - z1;
+    const segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    const segmentGeometry = new THREE.BoxGeometry(bridgeWidth, bridgeHeight, segmentLength);
+    const segment = new THREE.Mesh(segmentGeometry, bridgeMaterial);
+
+    segment.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2);
+    segment.rotation.y = Math.atan2(dx, dz);
+    segment.rotation.x = -Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
+    segment.castShadow = true;
+    segment.receiveShadow = true;
+
+    bridgeGroup.add(segment);
+    bridgeSegments.push(segment);
+
+    createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength);
+  }
+
+  scene.add(bridgeGroup);
+}
+
+function createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength) {
+  const railGeometry = new THREE.BoxGeometry(1, 10, segmentLength);
+  const railMaterial = new THREE.MeshLambertMaterial({ color: 0x4B5563 });
+
+  const dx = x2 - x1;
+  const dz = z2 - z1;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  const perpX = -dz / length * 10.5;
+  const perpZ = dx / length * 10.5;
+
+  // Left rail
+  const leftRail = new THREE.Mesh(railGeometry, railMaterial);
+  leftRail.position.set((x1 + x2) / 2 + perpX, (y1 + y2) / 2 + 5, (z1 + z2) / 2 + perpZ);
+  leftRail.rotation.y = Math.atan2(dx, dz);
+  leftRail.rotation.x = -Math.atan2(y2 - y1, Math.sqrt(dx * dx + dz * dz));
+  leftRail.castShadow = true;
+  bridgeGroup.add(leftRail);
+
+  // Right rail
+  const rightRail = new THREE.Mesh(railGeometry, railMaterial);
+  rightRail.position.set((x1 + x2) / 2 - perpX, (y1 + y2) / 2 + 5, (z1 + z2) / 2 - perpZ);
+  rightRail.rotation.y = Math.atan2(dx, dz);
+  rightRail.rotation.x = -Math.atan2(y2 - y1, Math.sqrt(dx * dx + dz * dz));
+  rightRail.castShadow = true;
+  bridgeGroup.add(rightRail);
+
+  collisionObjects.push(new THREE.Box3().setFromObject(leftRail));
+  collisionObjects.push(new THREE.Box3().setFromObject(rightRail));
+}
+
+// Flat roofs for landing / collision
+function createBuildingRoof(x, y, z, width, depth) {
+  const roofGeometry = new THREE.PlaneGeometry(width, depth);
+  const roofMaterial = new THREE.MeshLambertMaterial({ color: 0x1F2937, side: THREE.DoubleSide });
+
+  const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+  roof.position.set(x, y + 0.1, z);
+  roof.rotation.x = Math.PI / 2;
+  roof.receiveShadow = true;
+  roof.castShadow = true;
+  scene.add(roof);
+
+  const roofBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(x, y + 0.1, z),
+    new THREE.Vector3(width, 0.2, depth)
+  );
+  roofObjects.push({ box: roofBox, position: new THREE.Vector3(x, y + 0.1, z), width, depth });
+  collisionObjects.push(roofBox);
+}
+
+// Boundary walls (invisible barriers)
+function createBoundaryWalls() {
+  const wallHeight = 100;
+  const wallMaterial = new THREE.MeshLambertMaterial({
+    color: 0x374151,
+    transparent: true,
+    opacity: 0.7
+  });
+
+  const wallGeometry = new THREE.PlaneGeometry(worldSize, wallHeight);
+
+  const northWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  northWall.position.set(0, wallHeight / 2, -worldBoundary);
+  northWall.rotation.y = 0;
+  scene.add(northWall);
+
+  const southWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  southWall.position.set(0, wallHeight / 2, worldBoundary);
+  southWall.rotation.y = Math.PI;
+  scene.add(southWall);
+
+  const eastWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  eastWall.position.set(worldBoundary, wallHeight / 2, 0);
+  eastWall.rotation.y = Math.PI / 2;
+  scene.add(eastWall);
+
+  const westWall = new THREE.Mesh(wallGeometry, wallMaterial);
+  westWall.position.set(-worldBoundary, wallHeight / 2, 0);
+  westWall.rotation.y = -Math.PI / 2;
+  scene.add(westWall);
+}
+
+// For Sale sign in corner
+function createForSaleSign() {
+  const signGroup = new THREE.Group();
+
+  const postGeometry = new THREE.CylinderGeometry(0.5, 0.5, 20, 8);
+  const postMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+  const post = new THREE.Mesh(postGeometry, postMaterial);
+  post.position.y = 10;
+  signGroup.add(post);
+
+  const signGeometry = new THREE.PlaneGeometry(15, 8);
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#FFD700';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#8B4513';
+  context.lineWidth = 8;
+  context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+  context.fillStyle = '#8B4513';
+  context.font = 'bold 40px Arial';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('FOR SALE', canvas.width / 2, canvas.height / 2 - 15);
+  context.font = 'bold 24px Arial';
+  context.fillText('$20,000', canvas.width / 2, canvas.height / 2 + 20);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const textMaterial = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+  const textMesh = new THREE.Mesh(signGeometry, textMaterial);
+  textMesh.position.set(0, 20, 0.1);
+  textMesh.rotation.y = Math.PI / 4;
+  signGroup.add(textMesh);
+
+  const cornerX = worldBoundary - 50;
+  const cornerZ = worldBoundary - 50;
+  signGroup.position.set(cornerX, 0, cornerZ);
+  scene.add(signGroup);
+
+  collisionObjects.push(new THREE.Box3().setFromObject(signGroup));
+}
+
+// Player hoverboard avatar
+function createPlayerAvatar() {
+  const group = new THREE.Group();
+
+  const boardGeometry = new THREE.PlaneGeometry(10, 10);
+  const boardMaterial = new THREE.MeshStandardMaterial({
+    color: multiplayer ? multiplayer.playerColor : 0xC0C0C0,
+    metalness: 0.8,
+    roughness: 0.2,
+    side: THREE.DoubleSide
+  });
+  hoverBoard = new THREE.Mesh(boardGeometry, boardMaterial);
+  hoverBoard.rotation.x = -Math.PI / 2;
+  hoverBoard.castShadow = true;
+  hoverBoard.receiveShadow = true;
+  group.add(hoverBoard);
+
+  const underglowGeometry = new THREE.PlaneGeometry(10.5, 10.5);
+  const underglowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00FF00,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide
+  });
+  const underglow = new THREE.Mesh(underglowGeometry, underglowMaterial);
+  underglow.rotation.x = -Math.PI / 2;
+  underglow.position.y = -0.1;
+  group.add(underglow);
+
+  let avatar;
+  if (selectedAvatar === 'boy') {
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
+      new THREE.MeshLambertMaterial({ color: 0x3B82F6 })
+    );
+    body.position.y = 1.5;
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 8, 8),
+      new THREE.MeshLambertMaterial({ color: 0xFCD34D })
+    );
+    head.position.y = 2.8;
+    avatar = new THREE.Group();
+    avatar.add(body, head);
+  } else if (selectedAvatar === 'girl') {
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
+      new THREE.MeshLambertMaterial({ color: 0xEC4899 })
+    );
+    body.position.y = 1.5;
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 8, 8),
+      new THREE.MeshLambertMaterial({ color: 0xFCD34D })
+    );
+    head.position.y = 2.8;
+    avatar = new THREE.Group();
+    avatar.add(body, head);
+  }
+
+  if (avatar) {
+    avatar.position.y = 0.1;
+    group.add(avatar);
+  }
+
+  group.position.set(-150, hoverHeight, -150);
+  scene.add(group);
+  playerAvatar = group;
+}
+
+// NFT floating platforms
+function createNFTPlatform(x, y, z) {
+  const platformGeometry = new THREE.CylinderGeometry(6, 6, 0.5, 16);
+  const platformMaterial = new THREE.MeshLambertMaterial({
+    color: 0x2a2a5a,
+    transparent: true,
+    opacity: 0.8
+  });
+
+  const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+  platform.position.set(x, y - 4, z);
+  platform.receiveShadow = true;
+  scene.add(platform);
+
+  const platformBox = new THREE.Box3().setFromObject(platform);
+  collisionObjects.push(platformBox);
+  nftPlatforms.push(platform);
+}
+
+// Mini-map
+function initMiniMap() {
+  miniMapScene = new THREE.Scene();
+  miniMapCamera = new THREE.OrthographicCamera(-worldSize / 2, worldSize / 2, worldSize / 2, -worldSize / 2, 0.1, 2000);
+  miniMapCamera.position.y = 500;
+  miniMapCamera.lookAt(0, 0, 0);
+
+  const miniMapCanvas = document.createElement('canvas');
+  miniMapCanvas.width = 120;
+  miniMapCanvas.height = 120;
+  document.getElementById('mini-map').appendChild(miniMapCanvas);
+
+  miniMapRenderer = new THREE.WebGLRenderer({ canvas: miniMapCanvas, antialias: false });
+  miniMapRenderer.setSize(120, 120);
+  miniMapRenderer.setClearColor(0x000000, 0.5);
+
+  const groundGeometry = new THREE.PlaneGeometry(worldSize, worldSize);
+  const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x4ADE80 });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  miniMapScene.add(ground);
+
+  const playerGeometry = new THREE.CircleGeometry(10, 8);
+  const playerMaterial = new THREE.MeshBasicMaterial({ color: multiplayer ? multiplayer.playerColor : 0xFF0000 });
+  const playerIndicator = new THREE.Mesh(playerGeometry, playerMaterial);
+  playerIndicator.rotation.x = -Math.PI / 2;
+  miniMapScene.add(playerIndicator);
+
+  const otherPlayerGeometry = new THREE.CircleGeometry(8, 6);
+  const otherPlayerMaterial = new THREE.MeshBasicMaterial({ color: 0xFF6B6B });
+
+  window.updateMiniMap = function () {
+    playerIndicator.position.set(playerAvatar.position.x, 0, playerAvatar.position.z);
+
+    if (playerAvatar) {
+      playerAvatar.rotation.y = cameraAngle + Math.PI;
+    }
+
+    // Clear old NFT indicators
+    miniMapScene.children.forEach((child, index) => {
+      if (child.userData?.isNFTIndicator) {
+        miniMapScene.remove(child);
+      }
+    });
+
+    // Add NFT dots
+    nftObjects.forEach(nft => {
+      const indicator = new THREE.Mesh(otherPlayerGeometry, otherPlayerMaterial);
+      indicator.position.set(nft.position.x, 0, nft.position.z);
+      indicator.rotation.x = -Math.PI / 2;
+      indicator.userData = { isNFTIndicator: true };
+      miniMapScene.add(indicator);
+    });
+
+    miniMapRenderer.render(miniMapScene, miniMapCamera);
+  };
+}
+
+// Helper: is player on bridge?
+function checkIfOnBridge(position) {
+  for (const segment of bridgeSegments) {
+    const distance = position.distanceTo(segment.position);
+    if (distance < 40 && Math.abs(position.y - segment.position.y) < 20) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Helper: is player on upper platform?
+function checkIfOnUpper(position) {
+  return position.y > 700 && position.y < 800 &&
+         position.x > -200 && position.x < 300 &&
+         position.z > -300 && position.z < 300;
+}
+
+// Collision detection
+function checkCollisions(newPosition) {
+  playerCollider.setFromCenterAndSize(
+    new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
+    playerSize
+  );
+
+  for (const obj of collisionObjects) {
+    if (playerCollider.intersectsBox(obj)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Window resize
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+     }
+
+/* ==============================
    3D SCENE SETUP
 ============================== */
 
