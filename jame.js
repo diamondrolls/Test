@@ -3165,12 +3165,16 @@ document.getElementById('copy-invite-btn')?.addEventListener('click', () => {
   
 
 /* ==============================
-   AVATAR SELECTION → INSTANT START
+   AVATAR SELECTION + ROOM JOIN + GAME START (COMBINED & SIMPLIFIED)
 ============================== */
-function setupAvatarSelection() {
+let selectedAvatar = null;
+
+function setupAvatarSelectionAndGameStart() {
   const avatarOptions = document.querySelectorAll('.avatar-option');
   const confirmButton = document.getElementById('confirm-avatar');
+  const nameInput = document.getElementById('player-name');
 
+  // Avatar selection UI
   avatarOptions.forEach(option => {
     option.addEventListener('click', () => {
       avatarOptions.forEach(opt => opt.classList.remove('selected'));
@@ -3179,14 +3183,106 @@ function setupAvatarSelection() {
     });
   });
 
+  // Confirm button → join room → start game
   confirmButton.addEventListener('click', async () => {
-    if (selectedAvatar) {
-      // Only call autoJoinOrCreateRoom() — it now handles startGame() internally
-      await autoJoinOrCreateRoom();
-      // ← Removed the second startGame() call here!
-    } else {
+    if (!selectedAvatar) {
       alert('Please select an avatar to continue');
+      return;
     }
+
+    // Set player info
+    multiplayer.playerId = generatePlayerId();
+    multiplayer.playerName = nameInput && nameInput.value.trim() ? nameInput.value.trim() : 'Explorer';
+    multiplayer.playerColor = Math.floor(Math.random() * 0xFFFFFF);
+
+    // Determine or create room ID
+    const urlParams = new URLSearchParams(window.location.search);
+    let roomId = urlParams.get('room');
+    if (!roomId) {
+      roomId = `game-room-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    }
+    multiplayer.currentRoomId = roomId;
+
+    // Hide avatar screen immediately
+    document.getElementById('avatar-selection').style.display = 'none';
+
+    // === Create and join Supabase channel ===
+    multiplayer.gameChannel = client.channel(roomId, {
+      config: {
+        presence: { key: multiplayer.playerId },
+        broadcast: { self: false }
+      }
+    });
+
+    // Presence sync (existing logic - unchanged)
+    multiplayer.gameChannel
+      .on('presence', { event: 'sync' }, () => {
+        const state = multiplayer.gameChannel.presenceState();
+        multiplayer.otherPlayers.forEach((playerData, pid) => {
+          if (pid !== multiplayer.playerId && playerData.group) {
+            scene.remove(playerData.group);
+          }
+        });
+        multiplayer.otherPlayers.clear();
+
+        Object.entries(state).forEach(([key, presences]) => {
+          if (key !== multiplayer.playerId && presences.length > 0) {
+            const payload = presences[0]?.payload || {};
+            createOtherPlayerAvatar(key, payload);
+          }
+        });
+
+        updatePlayerCountAndList(state);
+        updateRoomInfoUI();
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        if (key !== multiplayer.playerId && newPresences.length > 0) {
+          const payload = newPresences[0]?.payload || {};
+          createOtherPlayerAvatar(key, payload);
+        }
+        updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        removeOtherPlayerAvatar(key);
+        updatePlayerCountAndList(multiplayer.gameChannel.presenceState());
+      });
+
+    // Broadcast messages
+    multiplayer.gameChannel
+      .on('broadcast', { event: 'player-move' }, ({ payload }) => {
+        if (payload.playerId !== multiplayer.playerId) {
+          updateOtherPlayerPosition(payload.playerId, payload.position, payload.rotation);
+        }
+      })
+      .on('broadcast', { event: 'chat-message' }, ({ payload }) => {
+        addChatMessage(payload.sender, payload.text, false);
+        createChatMessageBubble(payload.playerId, payload.sender, payload.text, false);
+      });
+
+    // Subscribe and start game on success
+    await multiplayer.gameChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await multiplayer.gameChannel.track({
+          name: multiplayer.playerName,
+          color: multiplayer.playerColor,
+          avatar: selectedAvatar
+        });
+
+        console.log('✅ Joined room:', roomId);
+
+        // Update shareable URL
+        if (!urlParams.has('room')) {
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.set('room', roomId);
+          window.history.replaceState({}, '', newUrl);
+        }
+
+        updateRoomInfoUI();
+
+        // === NOW START THE 3D GAME ===
+        startGame();
+      }
+    });
   });
 }
 
