@@ -2124,6 +2124,9 @@ function createPlayerAvatar() {
   group.position.set(-150, hoverHeight, -150);
   scene.add(group);
   playerAvatar = group;
+
+  // Ensure code that expects window.playerAvatar works
+  window.playerAvatar = playerAvatar;
 }
 
 // NFT floating platforms
