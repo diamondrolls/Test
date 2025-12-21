@@ -2829,8 +2829,6 @@ function removeChatMessage(playerId) {
 /* ==============================
    AVATAR SELECTION + ROOM JOIN + GAME START (COMBINED & SIMPLIFIED)
 ============================== */
-let selectedAvatar = null;
-
 function setupAvatarSelectionAndGameStart() {
   const avatarOptions = document.querySelectorAll('.avatar-option');
   const confirmButton = document.getElementById('confirm-avatar');
