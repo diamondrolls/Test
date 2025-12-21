@@ -2638,28 +2638,34 @@ function initSidebar() {
   const sidebar = document.getElementById('sidebar');
   const toggleButton = document.getElementById('sidebar-toggle');
   const modalOverlay = document.querySelector('.modal-overlay');
-  
+
+  // Defensive checks so missing DOM nodes don't throw.
+  if (!sidebar || !toggleButton || !modalOverlay) {
+    console.warn('initSidebar: missing sidebar DOM elements. Sidebar interactions will be disabled until elements exist.');
+    return;
+  }
+
   toggleButton.addEventListener('click', (e) => {
     e.stopPropagation();
     const isActive = sidebar.classList.toggle('active');
     canMove = !isActive;
     modalOverlay.classList.toggle('active', isActive);
-    
+
     if (isActive && controls && controls.isLocked) {
       controls.unlock();
     }
   });
-  
+
   document.addEventListener('click', (e) => {
-    if (sidebar.classList.contains('active') && 
-        !sidebar.contains(e.target) && 
+    if (sidebar.classList.contains('active') &&
+        !sidebar.contains(e.target) &&
         e.target !== toggleButton) {
       sidebar.classList.remove('active');
       canMove = true;
       modalOverlay.classList.remove('active');
     }
   });
-  
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && sidebar.classList.contains('active')) {
       sidebar.classList.remove('active');
@@ -2667,7 +2673,7 @@ function initSidebar() {
       modalOverlay.classList.remove('active');
     }
   });
-  
+
   initStatsTracking();
 }
 
