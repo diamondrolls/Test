@@ -98,9 +98,20 @@ let lookX = 0, lookY = 0;
 let velocity = new THREE.Vector3();
 let canJump = true;
 
-// Multiplayer
-let multiplayer;
-let selectedAvatar = null;
+// multiplayer global (replace any existing `let multiplayer;`)
+let multiplayer = {
+  playerId: null,
+  playerName: null,
+  playerColor: null,
+  otherPlayers: new Map(),
+  gameChannel: null,
+  currentRoomId: null
+};
+
+// helper used when joining/creating a room
+function generatePlayerId() {
+  return 'player-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+}
 
 // Assistant Bots
 let botManager;
