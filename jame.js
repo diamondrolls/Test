@@ -3084,6 +3084,76 @@ function setupAvatarSelectionAndGameStart() {
     });
   });
 }
+/* ==============================
+   MULTIPLAYER POSITION BROADCAST
+============================== */
+function sendPositionUpdate() {
+  if (!multiplayer.gameChannel || !playerAvatar || !multiplayer.playerId) return;
+  const position = playerAvatar.position;
+  const rotation = playerAvatar.rotation.y;
+
+  multiplayer.gameChannel.send({
+    type: 'broadcast',
+    event: 'player-move',
+    payload: {
+      playerId: multiplayer.playerId,
+      position: { x: position.x, y: position.y, z: position.z },
+      rotation: rotation
+    }
+  });
+}
+
+function updateOtherPlayerPosition(playerId, position, rotation) {
+  const otherPlayer = multiplayer.otherPlayers.get(playerId);
+  if (!otherPlayer || !otherPlayer.group) return;
+  otherPlayer.group.position.lerp(new THREE.Vector3(position.x, position.y, position.z), 0.2);
+  otherPlayer.group.rotation.y = rotation;
+}
+
+function createOtherPlayerAvatar(playerId, payload) {
+  const group = new THREE.Group();
+
+  const boardGeometry = new THREE.PlaneGeometry(10, 10);
+  const boardMaterial = new THREE.MeshStandardMaterial({
+    color: payload.color || 0x8888ff,
+    metalness: 0.8,
+    roughness: 0.2,
+    side: THREE.DoubleSide
+  });
+  const board = new THREE.Mesh(boardGeometry, boardMaterial);
+  board.rotation.x = -Math.PI / 2;
+  board.castShadow = true;
+  group.add(board);
+
+  const glowGeometry = new THREE.PlaneGeometry(10.5, 10.5);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: payload.color || 0x8888ff,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.DoubleSide
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.y = -0.1;
+  group.add(glow);
+
+  group.position.set(-150, hoverHeight, -150);
+  scene.add(group);
+
+  multiplayer.otherPlayers.set(playerId, {
+    group: group,
+    name: payload.name || 'Guest',
+    color: payload.color || 0x8888ff
+  });
+}
+
+function removeOtherPlayerAvatar(playerId) {
+  const player = multiplayer.otherPlayers.get(playerId);
+  if (player && player.group) {
+    scene.remove(player.group);
+  }
+  multiplayer.otherPlayers.delete(playerId);
+}
 
 /* ==============================
    startGame() - No old multiplayer init
