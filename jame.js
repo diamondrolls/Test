@@ -1,55 +1,111 @@
 /* ==============================
    CONFIGURATION & GLOBAL VARIABLES
 ============================== */
-const supabaseUrl = "https://fjtzodjudyctqacunlqp.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
+const SUPABASE_URL = "https://fjtzodjudyctqacunlqp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
+
 const TOKEN_FUNCTION_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens";
-const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
+
 const NFT_ABI = [
-  { "constant":true,"inputs":[{"name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"name":"","type":"address"}],"type":"function" },
-  { "constant":false,"inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"type":"function" }
+  {
+    constant: true,
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ name: "", type: "address" }],
+    type: "function"
+  },
+  {
+    constant: false,
+    inputs: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "tokenId", type: "uint256" }
+    ],
+    name: "safeTransferFrom",
+    outputs: [],
+    type: "function"
+  }
 ];
+
 const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 
- * @param {Object} state - The presence state, containing details about players.
+/**
+ * Updates the player count and list UI from Supabase Realtime Presence state.
+ *
+ * @param {Object} state - Presence state from Supabase.
+ *                         Format: { [sessionId]: [{ name: string, ... }[]] }
  */
 function updatePlayerCountAndList(state) {
-    const playerCountElement = document.querySelector('#player-count');
-    const playerListElement = document.querySelector('#player-list');
-     const playerNames = Object.values(state).map(player => player.name); // Adjust mapping based on actual state structure
-    const playerCount = playerNames.length;
- playerCountElement.textContent = `Players: ${playerCount}`;
-  // Clear the existing list
-    playerListElement.innerHTML = '';
-// Append the player names to the list
-    playerNames.forEach(name => {
-        const listItem = document.createElement('li');
-        listItem.textContent = name;
-        playerListElement.appendChild(listItem);
-    });
-   * @param {Object} roomInfo - Object containing room details (e.g., ID, join link).
- */
-function updateRoomInfoUI(roomInfo) {
-    const roomInfoElement = document.querySelector('#room-info');
-    const roomLinkElement = document.querySelector('#room-link');
-  if (!roomInfoElement || !roomLinkElement) {
-        console.warn("Missing DOM elements: '#room-info' or '#room-link'");
-        return;
-    }
-   
-    const { roomId, joinLink } = roomInfo;
+  const playerCountElement = document.querySelector('#player-count');
+  const playerListElement = document.querySelector('#player-list');
 
-    roomInfoElement.textContent = `Room ID: ${roomId}`;
-    roomLinkElement.textContent = joinLink;
-    roomLinkElement.href = joinLink;
+  if (!playerCountElement || !playerListElement) {
+    console.warn('Player count/list DOM elements missing (#player-count or #player-list)');
+    return;
+  }
+
+  // Extract unique player names safely
+  const playerNames = new Set();
+
+  Object.values(state).forEach((presences) => {
+    presences.forEach((presence) => {
+      if (presence.name && typeof presence.name === 'string') {
+        playerNames.add(presence.name.trim());
+      }
+    });
+  });
+
+  const playerCount = playerNames.size;
+
+  playerCountElement.textContent = `Players: ${playerCount}`;
+
+  // Rebuild list
+  playerListElement.innerHTML = '';
+
+  if (playerCount === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'No players online';
+    li.style.color = '#888';
+    playerListElement.appendChild(li);
+  } else {
+    [...playerNames].sort().forEach((name) => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      playerListElement.appendChild(li);
+    });
+  }
 }
-   
-module.exports = {
-    updatePlayerCountAndList,
-    updateRoomInfoUI,
-};
+
+/**
+ * Updates room info UI with current room ID and shareable link.
+ * The game uses dynamic rooms via URL param ?room=...
+ */
+function updateRoomInfoUI() {
+  const roomInfoElement = document.querySelector('#room-info');
+  const roomLinkElement = document.querySelector('#room-link');
+
+  if (!roomInfoElement || !roomLinkElement) {
+    console.warn("Missing room info DOM elements (#room-info or #room-link)");
+    return;
+  }
+
+  const roomId = multiplayer?.currentRoomId || 'default-world';
+  const joinLink = window.location.href.split('?')[0] + (roomId !== 'default-world' ? `?room=${roomId}` : '');
+
+  roomInfoElement.textContent = `Room ID: ${roomId}`;
+  roomLinkElement.textContent = joinLink;
+  roomLinkElement.href = joinLink;
+  roomLinkElement.target = '_blank';
+  roomLinkElement.rel = 'noopener noreferrer';
+}
+
+/* ==============================
+   GLOBAL GAME STATE & VARIABLES
+============================== */
 let web3, account, nftContract;
 
 // Game economy configuration
@@ -135,7 +191,7 @@ let lookX = 0, lookY = 0;
 let velocity = new THREE.Vector3();
 let canJump = true;
 
-// multiplayer global (replace any existing `let multiplayer;`)
+// Multiplayer state
 let multiplayer = {
   playerId: null,
   playerName: null,
@@ -145,12 +201,12 @@ let multiplayer = {
   currentRoomId: null
 };
 
-// helper used when joining/creating a room
+// Helper: generate unique player ID
 function generatePlayerId() {
   return 'player-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 }
 
-// Assistant Bots
+// Assistant bots manager
 let botManager;
 
 /* ==============================
