@@ -13,6 +13,43 @@ const NFT_ABI = [
 ];
 const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 
+ * @param {Object} state - The presence state, containing details about players.
+ */
+function updatePlayerCountAndList(state) {
+    const playerCountElement = document.querySelector('#player-count');
+    const playerListElement = document.querySelector('#player-list');
+     const playerNames = Object.values(state).map(player => player.name); // Adjust mapping based on actual state structure
+    const playerCount = playerNames.length;
+ playerCountElement.textContent = `Players: ${playerCount}`;
+  // Clear the existing list
+    playerListElement.innerHTML = '';
+// Append the player names to the list
+    playerNames.forEach(name => {
+        const listItem = document.createElement('li');
+        listItem.textContent = name;
+        playerListElement.appendChild(listItem);
+    });
+   * @param {Object} roomInfo - Object containing room details (e.g., ID, join link).
+ */
+function updateRoomInfoUI(roomInfo) {
+    const roomInfoElement = document.querySelector('#room-info');
+    const roomLinkElement = document.querySelector('#room-link');
+  if (!roomInfoElement || !roomLinkElement) {
+        console.warn("Missing DOM elements: '#room-info' or '#room-link'");
+        return;
+    }
+   
+    const { roomId, joinLink } = roomInfo;
+
+    roomInfoElement.textContent = `Room ID: ${roomId}`;
+    roomLinkElement.textContent = joinLink;
+    roomLinkElement.href = joinLink;
+}
+   
+module.exports = {
+    updatePlayerCountAndList,
+    updateRoomInfoUI,
+};
 let web3, account, nftContract;
 
 // Game economy configuration
