@@ -2624,7 +2624,33 @@ function checkNFTInteraction() {
     if (!isMobile) document.body.style.cursor = 'auto';
   }
 }
+/* ==============================
+   NFT LEVEL OF DETAIL (LOD) SYSTEM
+============================== */
+function updateNFTLOD() {
+  if (!camera || nftObjects.length === 0) return;
 
+  const nearDistance = 150;
+  const farDistance = 400;
+
+  nftObjects.forEach(nft => {
+    const distance = camera.position.distanceTo(nft.position);
+
+    if (distance < nearDistance) {
+      if (nft.material) nft.material.opacity = 0.9;
+      if (nft.userData.glow) nft.userData.glow.visible = true;
+    } else if (distance < farDistance) {
+      if (nft.material) nft.material.opacity = 0.6;
+      if (nft.userData.glow) {
+        nft.userData.glow.visible = true;
+        nft.userData.glow.material.opacity = 0.2;
+      }
+    } else {
+      if (nft.material) nft.material.opacity = 0.3;
+      if (nft.userData.glow) nft.userData.glow.visible = false;
+    }
+  });
+}
 function isNFTBlockedByBuilding(nft) {
   const raycaster = new THREE.Raycaster();
   const direction = new THREE.Vector3();
