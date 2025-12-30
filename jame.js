@@ -3230,13 +3230,13 @@ function removeOtherPlayerAvatar(playerId) {
 }
 
 /* ==============================
-   startGame() - No old multiplayer init
+   startGame() - Entry point after avatar selection & room join
 ============================== */
 async function startGame() {
   initSidebar();
-
   init3DScene();
 
+  // Spawn only 4 assistant bots
   botManager = new BotManager(scene, multiplayer, {
     maxBots: 4,
     roamRadius: worldBoundary * 0.9,
@@ -3251,9 +3251,16 @@ async function startGame() {
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
 
-
+  // Make sure chat bubbles follow players smoothly
+  // (this was added in the improved chat system)
+  if (typeof updateAllChatBubbles === 'function') {
+    // Will be called every frame in animate()
+  }
 }
 
+/* ==============================
+   Room Share Link - Copy to Clipboard
+============================== */
 document.addEventListener('DOMContentLoaded', () => {
   const shareLink = document.getElementById('room-share-link');
   if (shareLink) {
@@ -3261,12 +3268,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const url = window.location.href;
       navigator.clipboard.writeText(url).then(() => {
         shareLink.textContent = 'Copied!';
-        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+        setTimeout(() => {
+          shareLink.textContent = 'Copy Link';
+        }, 2000);
       }).catch(() => {
         shareLink.textContent = 'Failed';
-        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+        setTimeout(() => {
+          shareLink.textContent = 'Copy Link';
+        }, 2000);
       });
     });
   }
 });
+
+/* ==============================
+   Final initialization message
+============================== */
 console.log("NFT Shooter Universe initialized successfully!");
