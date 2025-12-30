@@ -3254,4 +3254,19 @@ async function startGame() {
 
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  const shareLink = document.getElementById('room-share-link');
+  if (shareLink) {
+    shareLink.addEventListener('click', () => {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        shareLink.textContent = 'Copied!';
+        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+      }).catch(() => {
+        shareLink.textContent = 'Failed';
+        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+      });
+    });
+  }
+});
 console.log("NFT Shooter Universe initialized successfully!");
