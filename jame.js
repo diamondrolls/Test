@@ -1,6 +1,23 @@
 /* ==============================
    CONFIGURATION & GLOBAL VARIABLES
 ============================== */
+
+document.addEventListener('DOMContentLoaded', () => {
+  const shareLink = document.getElementById('room-share-link');
+  if (shareLink) {
+    shareLink.addEventListener('click', () => {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        shareLink.textContent = 'Copied!';
+        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+      }).catch(() => {
+        shareLink.textContent = 'Failed';
+        setTimeout(() => { shareLink.textContent = 'Copy Link'; }, 2000);
+      });
+    });
+  }
+});
+
 const SUPABASE_URL = "https://fjtzodjudyctqacunlqp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
 
