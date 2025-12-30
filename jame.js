@@ -2554,7 +2554,8 @@ function animate() {
   updateBullets();
   checkNFTInteraction();
   updateNFTLOD();
-
+  updateAllChatBubbles();
+   
   // Bots
   if (botManager) botManager.update();
 
