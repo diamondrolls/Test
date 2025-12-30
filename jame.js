@@ -3238,7 +3238,7 @@ async function startGame() {
   init3DScene();
 
   botManager = new BotManager(scene, multiplayer, {
-    maxBots: 8,
+    maxBots: 4,
     roamRadius: worldBoundary * 0.9,
     moveSpeed: 4.0,
     detectionRange: 100,
