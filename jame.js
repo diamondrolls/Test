@@ -165,7 +165,7 @@ let targetCameraAngle = 0;
 
 // Player avatar
 let hoverBoard;
-let hoverHeight = 3;
+let hoverHeight = 5;
 let hoverBobSpeed = 2;
 let hoverBobAmount = 0.3;
 let hoverTime = 0;
