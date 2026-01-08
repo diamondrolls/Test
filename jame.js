@@ -2019,6 +2019,11 @@ function createMoonBridge() {
 
     bridgeGroup.add(segment);
     bridgeSegments.push(segment);
+     
+
+   
+}
+
 
    
 
