@@ -2020,14 +2020,42 @@ function createMoonBridge() {
     bridgeGroup.add(segment);
     bridgeSegments.push(segment);
      
+ createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength);
+  }
 
-   
+  scene.add(bridgeGroup);
 }
 
+function createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLength) {
+  const railGeometry = new THREE.BoxGeometry(1, 10, segmentLength);
+  const railMaterial = new THREE.MeshLambertMaterial({ color: 0x4B5563 });
 
+  const dx = x2 - x1;
+  const dz = z2 - z1;
+  const length = Math.sqrt(dx * dx + dz * dz);
+  const perpX = -dz / length * 10.5;
+  const perpZ = dx / length * 10.5;
+
+  // Left rail
+  const leftRail = new THREE.Mesh(railGeometry, railMaterial);
+  leftRail.position.set((x1 + x2) / 2 + perpX, (y1 + y2) / 2 + 5, (z1 + z2) / 2 + perpZ);
+  leftRail.rotation.y = Math.atan2(dx, dz);
+  leftRail.rotation.x = -Math.atan2(y2 - y1, Math.sqrt(dx * dx + dz * dz));
+  leftRail.castShadow = true;
+  bridgeGroup.add(leftRail);
+
+  // Right rail
+  const rightRail = new THREE.Mesh(railGeometry, railMaterial);
+  rightRail.position.set((x1 + x2) / 2 - perpX, (y1 + y2) / 2 + 5, (z1 + z2) / 2 - perpZ);
+  rightRail.rotation.y = Math.atan2(dx, dz);
+  rightRail.rotation.x = -Math.atan2(y2 - y1, Math.sqrt(dx * dx + dz * dz));
+  rightRail.castShadow = true;
+  bridgeGroup.add(rightRail);
+
+  collisionObjects.push(new THREE.Box3().setFromObject(leftRail));
+  collisionObjects.push(new THREE.Box3().setFromObject(rightRail));
    
-
-
+}
 
 // Flat roofs for landing / collision
 function createBuildingRoof(x, y, z, width, depth) {
