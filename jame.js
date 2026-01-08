@@ -174,7 +174,7 @@ let hoverTime = 0;
 let collisionObjects = [];
 let roofObjects = [];
 let playerCollider = new THREE.Box3();
-let playerSize = new THREE.Vector3(6, 2, 6);
+let playerSize = new THREE.Vector3(4, 2, 4);
 let playerOnRoof = false;
 let currentRoof = null;
 
