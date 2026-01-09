@@ -2555,16 +2555,6 @@ function tryMoveTo(proposedPos) {
     return true;
   }
 
-  // 2. Try stepping up (for small height differences / segment transitions)
-  const stepHeight = 10; // ← tune this: 8–14 works well for most cases
-  const steppedPos = proposedPos.clone();
-  steppedPos.y += stepHeight;
-
-  if (!checkCollisions(steppedPos)) {
-    playerAvatar.position.copy(steppedPos);
-    return true;
-  }
-
   // Both attempts failed → movement blocked
   return false;
 }
