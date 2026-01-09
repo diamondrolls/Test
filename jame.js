@@ -2318,19 +2318,22 @@ function checkIfOnUpper(position) {
          position.z > -300 && position.z < 300;
 }
 
-// Collision detection
+// Collision detection with step-up support
 function checkCollisions(newPosition) {
+  // Update player collider at the proposed new position
   playerCollider.setFromCenterAndSize(
     new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
     playerSize
   );
 
+  // Check for any collision with all objects
   for (const obj of collisionObjects) {
     if (playerCollider.intersectsBox(obj)) {
-      return true;
+      return true; // Collision detected
     }
   }
-  return false;
+  
+  return false; // No collision
 }
 
 // Window resize
