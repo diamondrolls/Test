@@ -2302,40 +2302,67 @@ function initMiniMap() {
 
 // Helper: is player on bridge?
 function checkIfOnBridge(position) {
-  for (const segment of bridgeSegments) {
-    const distance = position.distanceTo(segment.position);
-    if (distance < 60 && Math.abs(position.y - segment.position.y) < 20) {
-      return true;
+    for (const segment of bridgeSegments) {
+        const distance = position.distanceTo(segment.position);
+        if (distance < 60 && Math.abs(position.y - segment.position.y) < 20) {
+            return true;
+        }
     }
-  }
-  return false;
+    return false;
+}
+
+// Improved: get average surface height of nearby bridge segments
+function getBridgeSurfaceY(position) {
+    let totalWeight = 0;
+    let weightedY = 0;
+    let checked = 0;
+
+    // Only check segments in rough bounding box
+    for (const seg of bridgeSegments) {
+        checked++;
+        const dx = Math.abs(position.x - seg.position.x);
+        const dz = Math.abs(position.z - seg.position.z);
+        
+        if (dx > 100 || dz > 100) continue; // early reject - critical for performance
+        
+        const dist = position.distanceTo(seg.position);
+        if (dist < 80) {
+            const weight = 1 / (dist * dist + 0.1); // inverse square falloff
+            weightedY += seg.position.y * weight;
+            totalWeight += weight;
+        }
+    }
+
+    // Optional: uncomment when debugging performance/lag
+    // console.log(`Bridge surface check: ${checked}/${bridgeSegments.length} segments processed`);
+
+    return totalWeight > 0 ? weightedY / totalWeight : null;
 }
 
 // Helper: is player on upper platform?
 function checkIfOnUpper(position) {
-  return position.y > 700 && position.y < 800 &&
-         position.x > -200 && position.x < 300 &&
-         position.z > -300 && position.z < 300;
+    return position.y > 700 && position.y < 800 &&
+           position.x > -200 && position.x < 300 &&
+           position.z > -300 && position.z < 300;
 }
 
 // Collision detection with step-up support
 function checkCollisions(newPosition) {
-  // Update player collider at the proposed new position
-  playerCollider.setFromCenterAndSize(
-    new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
-    playerSize
-  );
+    // Update player collider at the proposed new position
+    playerCollider.setFromCenterAndSize(
+        new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
+        playerSize
+    );
 
-  // Check for any collision with all objects
-  for (const obj of collisionObjects) {
-    if (playerCollider.intersectsBox(obj)) {
-      return true; // Collision detected
+    // Check for any collision with all objects
+    for (const obj of collisionObjects) {
+        if (playerCollider.intersectsBox(obj)) {
+            return true; // Collision detected
+        }
     }
-  }
-  
-  return false; // No collision
-}
 
+    return false; // No collision
+}
 // Window resize
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
