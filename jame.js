@@ -2559,70 +2559,131 @@ function init3DScene() {
 
 // Recommended helper: weighted average bridge surface Y (smooth transitions)
 function getBridgeSurfaceY(position) {
-  let totalWeight = 0;
-  let weightedY = 0;
+    let closest = null;
+    let minDist = Infinity;
 
-  for (const seg of bridgeSegments) {
-    const dist = position.distanceTo(seg.position);
-    if (dist < 80) { // increased range for smoother blending
-      const weight = 1 / (dist * dist + 0.1); // inverse square falloff
-      weightedY += seg.position.y * weight;
-      totalWeight += weight;
+    // Optional early reject (recommended!)
+    for (const seg of bridgeSegments) {
+        const dx = Math.abs(position.x - seg.position.x);
+        const dz = Math.abs(position.z - seg.position.z);
+        if (dx > 120 || dz > 120) continue;
+
+        const dist = position.distanceTo(seg.position);
+        if (dist < minDist) {
+            minDist = dist;
+            closest = seg;
+        }
     }
-  }
 
-  return totalWeight > 0 ? weightedY / totalWeight : null;
+    if (closest && minDist < 80) {
+        return closest.position.y;
+    }
+    return null;
 }
 
-// Movement with step-up
+// Movement with step-up support (simplified version)
 function tryMoveTo(proposedPos) {
-  // 1. Try direct movement at calculated height
-  if (!checkCollisions(proposedPos)) {
-    playerAvatar.position.copy(proposedPos);
-    return true;
-  }
+    // 1. Try direct movement at calculated height
+    if (!checkCollisions(proposedPos)) {
+        playerAvatar.position.copy(proposedPos);
+        return true;
+    }
 
-  // Both attempts failed → movement blocked
-  return false;
+    // Optional: you could add small step-up attempts here in future
+    // For now: if direct move fails → movement is blocked
+
+    return false;
 }
 
-    // World boundary clamp
+// ================================================
+//           Main animation/game loop
+// ================================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+    hoverTime += delta;
+
+    // Player movement
+    if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
+        const moveSpeed = 200 * delta;
+
+        // Calculate movement direction in world space (based on camera facing)
+        const forward = new THREE.Vector3(Math.sin(cameraAngle), 0, Math.cos(cameraAngle));
+        const right = new THREE.Vector3(Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2));
+
+        const direction = new THREE.Vector3();
+        if (moveForward) direction.add(forward);
+        if (moveBackward) direction.sub(forward);
+        if (moveLeft) direction.sub(right);
+        if (moveRight) direction.add(right);
+
+        if (direction.lengthSq() > 0) {
+            direction.normalize();
+
+            // Calculate desired horizontal position
+            const desiredPos = playerAvatar.position.clone()
+                .add(direction.multiplyScalar(moveSpeed));
+
+            // === Determine target surface Y ===
+            let targetY = hoverHeight;
+
+            if (checkIfOnBridge(desiredPos)) {
+                const surfaceY = getBridgeSurfaceY(desiredPos);
+                if (surfaceY !== null) {
+                    targetY = surfaceY + hoverHeight;
+                }
+            } else if (checkIfOnUpper(desiredPos)) {
+                targetY = 750 + hoverHeight;
+            }
+
+            // Apply hover bob animation
+            const finalY = targetY + Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+            desiredPos.y = finalY;
+
+            // Try to move
+            tryMoveTo(desiredPos);
+        }
+    }
+
+    // World boundary clamp (always apply)
     playerAvatar.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.x));
     playerAvatar.position.z = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.z));
-  }
 
-  // Mobile look
-  if (isMobile && canMove) {
-    if (lookX !== 0 || lookY !== 0) {
-      targetCameraAngle -= lookX * 0.01;
-      cameraHeight = Math.max(5, Math.min(30, cameraHeight - lookY * 0.1));
-      lookX = lookY = 0;
+    // Mobile look controls
+    if (isMobile && canMove) {
+        if (lookX !== 0 || lookY !== 0) {
+            targetCameraAngle -= lookX * 0.01;
+            cameraHeight = Math.max(5, Math.min(30, cameraHeight - lookY * 0.1));
+            lookX = lookY = 0;
+        }
     }
-  }
 
-  // Update systems
-  updateThirdPersonCamera();
-  updateBullets();
-  checkNFTInteraction();
-  updateNFTLOD();
-  updateAllChatBubbles();
-   
-  // Bots
-  if (botManager) botManager.update();
+    // Update camera position
+    updateThirdPersonCamera();
 
-  // Mini-map
-  if (window.updateMiniMap) window.updateMiniMap();
+    // Update game systems
+    updateBullets();
+    checkNFTInteraction();
+    updateNFTLOD();
+    updateAllChatBubbles();
 
-  // Multiplayer position broadcast (throttled)
-  const now = performance.now();
-  if (now - lastSendTime > 100) {
-    sendPositionUpdate();
-    lastSendTime = now;
-  }
+    // Update bots
+    if (botManager) botManager.update();
 
-  renderer.render(scene, camera);
+    // Update mini-map
+    if (window.updateMiniMap) window.updateMiniMap();
+
+    // Throttled multiplayer position broadcast
+    const now = performance.now();
+    if (now - lastSendTime > 100) {  // ~10 times per second
+        sendPositionUpdate();
+        lastSendTime = now;
+    }
+
+    // Final render
+    renderer.render(scene, camera);
 }
-
 /* ==============================
    NFT INTERACTION
 ============================== */
