@@ -3318,3 +3318,4 @@ document.addEventListener('DOMContentLoaded', () => {
    Final initialization message
 ============================== */
 console.log("NFT Shooter Universe initialized successfully!");
+}
