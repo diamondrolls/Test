@@ -169,6 +169,7 @@ let hoverHeight = 5;
 let hoverBobSpeed = 2;
 let hoverBobAmount = 0.3;
 let hoverTime = 0;
+let selectedAvatar = null;
 
 // Collision detection
 let collisionObjects = [];
