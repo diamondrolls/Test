@@ -2450,48 +2450,8 @@ function init3DScene() {
   // Mini-map
   initMiniMap();
 
-  // Start animation loop
-  clock = new THREE.Clock();
-  animate();
-}
-
-function updateThirdPersonCamera() {
-  if (!playerAvatar) return;
-
-  // Smoothly interpolate camera angle
-  cameraAngle += (targetCameraAngle - cameraAngle) * 0.1;
-
-  const pos = playerAvatar.position;
-  const offset = new THREE.Vector3(
-    Math.sin(cameraAngle) * cameraDistance,
-    cameraHeight,
-    Math.cos(cameraAngle) * cameraDistance
-  );
-
-  camera.position.copy(pos).add(offset);
-  camera.lookAt(pos.x, pos.y + 3, pos.z);
-}
-
-function createWorld() {
-  // Ground
-  const groundGeometry = new THREE.PlaneGeometry(worldSize, worldSize);
-  const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x4ADE80 });
-  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  // City, bridge, upper platform, boundaries, etc.
-  createCity();
-  createMoonBridge();
-  createUpperPlatform();
-  createBoundaryWalls();
-  createForSaleSign();
-}
-
-function animate() {
+ function animate() {
   requestAnimationFrame(animate);
-
   const delta = clock.getDelta();
   hoverTime += delta;
 
@@ -2499,6 +2459,7 @@ function animate() {
   if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
     const moveSpeed = 200 * delta;
 
+    // Calculate movement direction in world space (based on camera angle)
     const forward = new THREE.Vector3(Math.sin(cameraAngle), 0, Math.cos(cameraAngle));
     const right = new THREE.Vector3(Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2));
 
@@ -2508,36 +2469,105 @@ function animate() {
     if (moveLeft) direction.sub(right);
     if (moveRight) direction.add(right);
 
-    if (direction.lengthSq() > 0) direction.normalize();
+    if (direction.lengthSq() > 0) {
+      direction.normalize();
 
-    const newPos = playerAvatar.position.clone().add(direction.multiplyScalar(moveSpeed));
+      // Calculate desired horizontal position
+      const desiredPos = playerAvatar.position.clone()
+        .add(direction.multiplyScalar(moveSpeed));
 
-    // Determine desired Y based on location
-    let targetY = hoverHeight;
+      // === Determine target surface Y ===
+      let targetY = hoverHeight;
 
-    if (checkIfOnBridge(newPos)) {
-      // Find nearest bridge segment Y
-      let closestY = hoverHeight;
-      for (const seg of bridgeSegments) {
-        if (newPos.distanceTo(seg.position) < 40) {
-          closestY = seg.position.y;
-          break;
+      if (checkIfOnBridge(desiredPos)) {
+        // Improved: use weighted average of nearby segments (recommended!)
+        const surfaceY = getBridgeSurfaceY(desiredPos); // ← implement this function (see below)
+        if (surfaceY !== null) {
+          targetY = surfaceY + hoverHeight;
+        } else {
+          // Fallback to nearest segment
+          for (const seg of bridgeSegments) {
+            if (desiredPos.distanceTo(seg.position) < 60) {
+              targetY = seg.position.y + hoverHeight;
+              break;
+            }
+          }
         }
+      } else if (checkIfOnUpper(desiredPos)) {
+        targetY = 750 + hoverHeight;
       }
-      targetY = closestY + hoverHeight;
-    } else if (checkIfOnUpper(newPos)) {
-      targetY = 750 + hoverHeight;
+
+      // Apply hover bob animation on top of surface Y
+      const finalY = targetY + Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+
+      // Final desired position with correct Y
+      desiredPos.y = finalY;
+
+      // === Try to move with step-up support ===
+      tryMoveTo(desiredPos);
     }
+  }
 
-    // Apply hover bob
-    targetY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+  // Update camera
+  updateThirdPersonCamera();
 
-    newPos.y = targetY;
+  // Other updates...
+  updateBullets();
+  checkNFTInteraction();
+  updateNFTLOD();
+  updateAllChatBubbles();
 
-    // Collision check
-    if (!checkCollisions(newPos)) {
-      playerAvatar.position.copy(newPos);
+  if (botManager) botManager.update();
+  if (window.updateMiniMap) window.updateMiniMap();
+
+  // Throttled multiplayer sync
+  const now = performance.now();
+  if (now - lastSendTime > 100) {
+    sendPositionUpdate();
+    lastSendTime = now;
+  }
+
+  renderer.render(scene, camera);
+}
+
+// Recommended helper: weighted average bridge surface Y (smooth transitions)
+function getBridgeSurfaceY(position) {
+  let totalWeight = 0;
+  let weightedY = 0;
+
+  for (const seg of bridgeSegments) {
+    const dist = position.distanceTo(seg.position);
+    if (dist < 80) { // increased range for smoother blending
+      const weight = 1 / (dist * dist + 0.1); // inverse square falloff
+      weightedY += seg.position.y * weight;
+      totalWeight += weight;
     }
+  }
+
+  return totalWeight > 0 ? weightedY / totalWeight : null;
+}
+
+// Movement with step-up
+function tryMoveTo(proposedPos) {
+  // 1. Try direct movement at calculated height
+  if (!checkCollisions(proposedPos)) {
+    playerAvatar.position.copy(proposedPos);
+    return true;
+  }
+
+  // 2. Try stepping up (for small height differences / segment transitions)
+  const stepHeight = 10; // ← tune this: 8–14 works well for most cases
+  const steppedPos = proposedPos.clone();
+  steppedPos.y += stepHeight;
+
+  if (!checkCollisions(steppedPos)) {
+    playerAvatar.position.copy(steppedPos);
+    return true;
+  }
+
+  // Both attempts failed → movement blocked
+  return false;
+}
 
     // World boundary clamp
     playerAvatar.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.x));
