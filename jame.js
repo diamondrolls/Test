@@ -1,13 +1,18 @@
-/* ==============================
-   CONFIGURATION & GLOBAL VARIABLES
-============================== */
+// ================================================
+//          CONFIGURATION & CONSTANTS
+// ================================================
+
+// Supabase Configuration (⚠️ WARNING: Never hardcode keys in production client code!)
 const SUPABASE_URL = "https://fjtzodjudyctqacunlqp.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqdHpvZGp1ZHljdHFhY3VubHFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwNjA2OTQsImV4cCI6MjA3MzYzNjY5NH0.qR9RBsecfGUfKnbWgscmxloM-oEClJs_bo5YWoxFoE4";
 
+// Supabase Edge Function for secure token operations (recommended endpoint)
 const TOKEN_FUNCTION_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens";
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Initialize Supabase client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// NFT Contract (Polygon / Ethereum)
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
 
 const NFT_ABI = [
@@ -31,95 +36,33 @@ const NFT_ABI = [
   }
 ];
 
+// Revenue / mint receiver address (⚠️ be very careful with this in production!)
 const RECEIVER_ADDRESS = "0xaE0C180e071eE288B2F2f6ff6edaeF014678fFB7";
 
-/**
- * Updates the player count and list UI from Supabase Realtime Presence state.
- *
- * @param {Object} state - Presence state from Supabase.
- *                         Format: { [sessionId]: [{ name: string, ... }[]] }
- */
-function updatePlayerCountAndList(state) {
-  const playerCountElement = document.querySelector('#player-count');
-  const playerListElement = document.querySelector('#player-list');
+// ================================================
+//          GAME ECONOMY CONFIG
+// ================================================
 
-  if (!playerCountElement || !playerListElement) {
-    console.warn('Player count/list DOM elements missing (#player-count or #player-list)');
-    return;
-  }
-
-  // Extract unique player names safely
-  const playerNames = new Set();
-
-  Object.values(state).forEach((presences) => {
-    presences.forEach((presence) => {
-      if (presence.name && typeof presence.name === 'string') {
-        playerNames.add(presence.name.trim());
-      }
-    });
-  });
-
-  const playerCount = playerNames.size;
-
-  playerCountElement.textContent = `Players: ${playerCount}`;
-
-  // Rebuild list
-  playerListElement.innerHTML = '';
-
-  if (playerCount === 0) {
-    const li = document.createElement('li');
-    li.textContent = 'No players online';
-    li.style.color = '#888';
-    playerListElement.appendChild(li);
-  } else {
-    [...playerNames].sort().forEach((name) => {
-      const li = document.createElement('li');
-      li.textContent = name;
-      playerListElement.appendChild(li);
-    });
-  }
-}
-
-/**
- * Updates room info UI with current room ID and shareable link.
- * The game uses dynamic rooms via URL param ?room=...
- */
-function updateRoomInfoUI() {
-  const roomInfoElement = document.querySelector('#room-info');
-  const roomLinkElement = document.querySelector('#room-link');
-
-  if (!roomInfoElement || !roomLinkElement) {
-    console.warn("Missing room info DOM elements (#room-info or #room-link)");
-    return;
-  }
-
-  const roomId = multiplayer?.currentRoomId || 'default-world';
-  const joinLink = window.location.href.split('?')[0] + (roomId !== 'default-world' ? `?room=${roomId}` : '');
-
-  roomInfoElement.textContent = `Room ID: ${roomId}`;
-  roomLinkElement.textContent = joinLink;
-  roomLinkElement.href = joinLink;
-  roomLinkElement.target = '_blank';
-  roomLinkElement.rel = 'noopener noreferrer';
-}
-
-/* ==============================
-   GLOBAL GAME STATE & VARIABLES
-============================== */
-let web3, account, nftContract;
-
-// Game economy configuration
 const GAME_CONFIG = {
   BUILDING_BASE_COST: 250,
-  BULLET_COST: 1,
+  BULLET_COST: 1,           // tokens per 500 bullets
   BULLET_AMOUNT: 500,
-  TRANSFER_RATE: 1,
+  TRANSFER_RATE: 1,         // tokens per unit (currently unused?)
   MIN_TRANSFER: 1,
   MAX_SALE_PRICE: 1000000
 };
 
+// ================================================
+//          GLOBAL GAME STATE
+// ================================================
+
+// Web3 & Wallet
+let web3 = null;
+let account = null;
+let nftContract = null;
+
 // Player stats
-let playerStats = {
+const playerStats = {
   health: 50,
   maxHealth: 50,
   bullets: 100,
@@ -130,70 +73,26 @@ let playerStats = {
   gameTokens: 0
 };
 
-// Game systems
-let nftCards = [];
+// Game objects & systems
+let scene = null;
+let camera = null;
+let renderer = null;
+let controls = null;
+
+let nftObjects = [];
 let bullets = [];
-let bulletSpeed = 50;
-let lastShotTime = 0;
-let shotCooldown = 150;
-let activeChatMessages = new Map();
-let canMove = true;
-let buildingOwnership = new Map();
-let ownedBuildings = [];
-let currentBuildingInteraction = null;
-
-// World settings
-let worldSize = 1500;
-let worldBoundary = worldSize / 2 - 50;
-
-// 3D scene variables
-let scene, camera, renderer, controls;
-let nftObjects = [], environmentObjects = [], buildingObjects = [];
-let raycaster, mouse;
-let currentIntersected = null;
-let miniMapScene, miniMapCamera, miniMapRenderer;
-let playerAvatar;
-let clock = new THREE.Clock();
-let prevTime = 0;
-let lastSendTime = 0;
-
-// Camera controls
-let cameraDistance = 25;
-let cameraHeight = 10;
-let cameraAngle = 0;
-let targetCameraAngle = 0;
-
-// Player avatar
-let hoverBoard;
-let hoverHeight = 5;
-let hoverBobSpeed = 2;
-let hoverBobAmount = 0.3;
-let hoverTime = 0;
-let selectedAvatar = null;
-
-// Collision detection
-let collisionObjects = [];
-let roofObjects = [];
-let playerCollider = new THREE.Box3();
-let playerSize = new THREE.Vector3(4, 2, 4);
-let playerOnRoof = false;
-let currentRoof = null;
-
-// Environment
+let buildingObjects = [];
+let environmentObjects = [];
 let nftPlatforms = [];
 let bridgeSegments = [];
+let collisionObjects = [];
+let roofObjects = [];
 
-// Mobile controls
-let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let lookTouchId = null;
-let lookStartX = 0, lookStartY = 0;
-let lookX = 0, lookY = 0;
-let velocity = new THREE.Vector3();
-let canJump = true;
+let playerAvatar = null;
+let hoverBoard = null;
 
-// Multiplayer state
-let multiplayer = {
+// Multiplayer
+const multiplayer = {
   playerId: null,
   playerName: null,
   playerColor: null,
@@ -202,23 +101,131 @@ let multiplayer = {
   currentRoomId: null
 };
 
-// Helper: generate unique player ID
-function generatePlayerId() {
-  return 'player-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-}
-
-// Assistant bots manager
-let botManager;
-
-/* ==============================
-   NFT LOADING GLOBALS
-============================== */
+// Loading & caching
 const nftLoadingQueue = [];
 let activeLoads = 0;
 const MAX_CONCURRENT_LOADS = 3;
 const nftCache = new Map();
-const textureLoader = new THREE.TextureLoader(); // ← THIS WAS MISSING!
+const textureLoader = new THREE.TextureLoader();
 
+// Bot system
+let botManager = null;
+
+// Interaction & controls
+let currentIntersected = null;
+let raycaster = null;
+let mouse = null;
+let currentBuildingInteraction = null;
+let canMove = true;
+let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Movement state
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let velocity = new THREE.Vector3();
+let lookTouchId = null;
+let lookStartX = 0, lookStartY = 0;
+let lookX = 0, lookY = 0;
+
+// World settings
+const worldSize = 1500;
+const worldBoundary = worldSize / 2 - 50;
+
+// Camera settings
+let cameraDistance = 25;
+let cameraHeight = 10;
+let cameraAngle = 0;
+let targetCameraAngle = 0;
+
+// Timing & animation
+const clock = new THREE.Clock();
+let hoverTime = 0;
+const hoverHeight = 5;
+const hoverBobSpeed = 2;
+const hoverBobAmount = 0.3;
+
+// Shooting
+let lastShotTime = 0;
+const shotCooldown = 150;
+const bulletSpeed = 50;
+
+// Chat
+const activeChatMessages = new Map();
+
+// ================================================
+//          HELPER FUNCTIONS (early ones)
+// ================================================
+
+/**
+ * Updates player count and list from Supabase Presence state
+ * @param {Object} state - Presence state object
+ */
+function updatePlayerCountAndList(state) {
+  const countEl = document.querySelector('#player-count');
+  const listEl = document.querySelector('#player-list');
+
+  if (!countEl || !listEl) {
+    console.warn('Missing player count/list DOM elements');
+    return;
+  }
+
+  const playerNames = new Set();
+
+  Object.values(state).forEach(presences => {
+    presences.forEach(presence => {
+      if (presence?.name?.trim()) {
+        playerNames.add(presence.name.trim());
+      }
+    });
+  });
+
+  const count = playerNames.size;
+  countEl.textContent = `Players: ${count}`;
+
+  listEl.innerHTML = '';
+
+  if (count === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'No players online';
+    li.style.color = '#888';
+    listEl.appendChild(li);
+  } else {
+    [...playerNames].sort().forEach(name => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      listEl.appendChild(li);
+    });
+  }
+}
+
+/**
+ * Updates room info UI (current room ID + shareable link)
+ */
+function updateRoomInfoUI() {
+  const roomInfo = document.querySelector('#room-info');
+  const roomLink = document.querySelector('#room-link');
+
+  if (!roomInfo || !roomLink) {
+    console.warn('Missing room info/link DOM elements');
+    return;
+  }
+
+  const roomId = multiplayer.currentRoomId || 'default-world';
+  const baseUrl = window.location.href.split('?')[0];
+  const joinLink = roomId === 'default-world' ? baseUrl : `${baseUrl}?room=${roomId}`;
+
+  roomInfo.textContent = `Room ID: ${roomId}`;
+  roomLink.textContent = joinLink;
+  roomLink.href = joinLink;
+  roomLink.target = '_blank';
+  roomLink.rel = 'noopener noreferrer';
+}
+
+/**
+ * Simple player ID generator
+ */
+function generatePlayerId() {
+  return `player-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 /* ==============================
    ASSISTANT BOT ROAMING SYSTEM
 ============================== */
