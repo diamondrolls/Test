@@ -766,80 +766,51 @@ async function initTokenSystem() {
   setupTokenPurchase();
 }
 
+// Get balance
 async function loadTokenBalance() {
-  try {
-    if (!account) {
-      playerStats.gameTokens = 0;
-      updateTokenDisplay();
-      return;
-    }
-    
-    const storedBalance = localStorage.getItem(`gameTokens_${account}`);
-    if (storedBalance) {
-      playerStats.gameTokens = parseInt(storedBalance);
-    } else {
-      playerStats.gameTokens = 0;
-      localStorage.setItem(`gameTokens_${account}`, '0');
-    }
-    
-    updateTokenDisplay();
-    
-  } catch (err) {
-    console.error("Failed to load token balance:", err);
+  if (!account) return;
+
+  const { data, error } = await supabase
+    .rpc('get_player_balance', { p_wallet: account.toLowerCase() });
+
+  if (error) {
+    console.error("Balance fetch failed", error);
     playerStats.gameTokens = 0;
-    updateTokenDisplay();
+  } else {
+    playerStats.gameTokens = data ?? 0;
   }
+
+  updateTokenDisplay();
 }
 
-function updateTokenDisplay() {
-  document.getElementById('token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('building-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('bullet-token-balance').textContent = playerStats.gameTokens;
-  document.getElementById('transfer-token-balance').textContent = playerStats.gameTokens;
-  
-  const transferAmountInput = document.getElementById('transfer-amount');
-  if (transferAmountInput) {
-    transferAmountInput.max = playerStats.gameTokens;
-  }
-  
-  const purchaseBtn = document.getElementById('purchase-building');
-  const balanceCheck = document.getElementById('token-balance-check');
-  
-  if (purchaseBtn && balanceCheck) {
-    if (playerStats.gameTokens >= GAME_CONFIG.BUILDING_BASE_COST) {
-      purchaseBtn.disabled = false;
-      purchaseBtn.textContent = `Purchase for ${GAME_CONFIG.BUILDING_BASE_COST} Tokens`;
-      balanceCheck.className = 'token-balance-check sufficient';
-      balanceCheck.innerHTML = `Your Token Balance: <span id="building-token-balance">${playerStats.gameTokens}</span> - <span style="color: #10b981;">Sufficient</span>`;
-    } else {
-      purchaseBtn.disabled = true;
-      purchaseBtn.textContent = `Need ${GAME_CONFIG.BUILDING_BASE_COST - playerStats.gameTokens} More Tokens`;
-      balanceCheck.className = 'token-balance-check insufficient';
-      balanceCheck.innerHTML = `Your Token Balance: <span id="building-token-balance">${playerStats.gameTokens}</span> - <span style="color: #ef4444;">Insufficient</span>`;
-    }
-  }
-}
-
+// When giving tokens (shooting NFTs, rewards, etc)
 async function addTokens(amount) {
-  playerStats.gameTokens += amount;
-  if (account) {
-    localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
-  }
+  const { data, error } = await supabase
+    .rpc('add_player_tokens', {
+      p_wallet: account.toLowerCase(),
+      p_amount: amount,
+      p_reason: 'nft_hit_reward'
+    });
+
+  if (error) throw new Error(error.message);
+
+  playerStats.gameTokens = data;
   updateTokenDisplay();
-  console.log(`Added ${amount} tokens to player balance. New balance: ${playerStats.gameTokens}`);
 }
 
+// When spending (buildings, bullets)
 async function removeTokens(amount) {
-  if (playerStats.gameTokens < amount) {
-    throw new Error(`Insufficient token balance. Required: ${amount}, Available: ${playerStats.gameTokens}`);
-  }
-  
-  playerStats.gameTokens -= amount;
-  if (account) {
-    localStorage.setItem(`gameTokens_${account}`, playerStats.gameTokens.toString());
-  }
+  const { data, error } = await supabase
+    .rpc('subtract_player_tokens', {
+      p_wallet: account.toLowerCase(),
+      p_amount: amount,
+      p_reason: 'building_purchase'
+    });
+
+  if (error) throw new Error(error.message);
+
+  playerStats.gameTokens = data;
   updateTokenDisplay();
-  console.log(`Removed ${amount} tokens from player balance. New balance: ${playerStats.gameTokens}`);
 }
 
 /* ==============================
