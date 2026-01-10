@@ -2563,49 +2563,6 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ================================================
-//           Helper: Nearest bridge segment height
-// ================================================
-function getBridgeSurfaceY(position) {
-    let closest = null;
-    let minDist = Infinity;
-
-    // Early reject using rough bounding box (very important for performance)
-    for (const seg of bridgeSegments) {
-        const dx = Math.abs(position.x - seg.position.x);
-        const dz = Math.abs(position.z - seg.position.z);
-        if (dx > 120 || dz > 120) continue;
-
-        const dist = position.distanceTo(seg.position);
-        if (dist < minDist) {
-            minDist = dist;
-            closest = seg;
-        }
-    }
-
-    // Only return height if close enough
-    if (closest && minDist < 80) {
-        return closest.position.y;
-    }
-
-    return null;
-}
-
-// ================================================
-//           Helper: Try move with basic collision
-// ================================================
-function tryMoveTo(proposedPos) {
-    // Try direct movement at calculated height
-    if (!checkCollisions(proposedPos)) {
-        playerAvatar.position.copy(proposedPos);
-        return true;
-    }
-
-    // Future improvement: add small step-up attempts here if desired
-    // For now: movement is blocked if collision occurs
-
-    return false;
-}
 /* ==============================
    NFT INTERACTION
 ============================== */
