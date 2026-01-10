@@ -2417,6 +2417,8 @@ function init3DScene() {
   // Initial camera position
   updateThirdPersonCamera();
 
+   // end of init3DScene()
+  animate();
   // Controls (desktop)
   if (!isMobile) {
     controls = new THREE.PointerLockControls(camera, document.body);
