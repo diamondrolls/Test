@@ -571,7 +571,7 @@ class BotManager {
 ============================== */
 
 document.addEventListener('DOMContentLoaded', function() {
-  client.auth.getSession().then(({ data }) => {
+  supabase.auth.getSession().then(({ data }) => {
     if (!data.session) {
       window.location.href = 'https://diamondrolls.github.io/play/';
     }
@@ -594,7 +594,7 @@ async function loadNFTs() {
     console.time('NFT Loading');
     clearNFTs();
     
-    const { data, error } = await client.from("nfts").select("*").order("created_at", { ascending: false }).limit(100); // Optional: limit for testing
+    const { data, error } = await supabase.from("nfts").select("*").order("created_at", { ascending: false }).limit(100); // Optional: limit for testing
 
     if (error) {
       console.error("Error loading NFTs:", error);
@@ -957,7 +957,7 @@ async function initBuildingOwnership() {
 
 async function loadBuildingOwnership() {
   try {
-    const { data, error } = await client.from("building_ownership").select("*");
+    const { data, error } = await supabase.from("building_ownership").select("*");
     
     if (error) {
       console.error("Error loading building ownership:", error);
@@ -1250,7 +1250,7 @@ async function purchaseBuilding() {
       await transferTokensToSeller(buildingData.owner, purchasePrice);
     }
     
-    const { error } = await client.from("building_ownership").upsert({
+    const { error } = await supabase.from("building_ownership").upsert({
       building_id: buildingId,
       owner: account,
       owner_name: ownerName,
@@ -1332,7 +1332,7 @@ async function updateBuildingInfo() {
   }
   
   try {
-    const { error } = await client.from("building_ownership").update({
+    const { error } = await supabase.from("building_ownership").update({
       owner_name: newOwnerName,
       sale_price: newPrice,
       updated_at: new Date().toISOString()
@@ -1375,7 +1375,7 @@ async function sellBuilding() {
   }
   
   try {
-    const { error } = await client.from("building_ownership").update({
+    const { error } = await supabase.from("building_ownership").update({
       for_sale: true,
       sale_price: salePrice,
       updated_at: new Date().toISOString()
@@ -1408,7 +1408,7 @@ async function cancelSale() {
   const buildingId = currentBuildingInteraction.id;
   
   try {
-    const { error } = await client.from("building_ownership").update({
+    const { error } = await supabase.from("building_ownership").update({
       for_sale: false,
       sale_price: null,
       updated_at: new Date().toISOString()
@@ -2691,7 +2691,7 @@ async function buyNFT(nftData) {
     const totalEth = web3.utils.toWei((Number(priceEth) + 6/1000).toString(), 'ether');
     await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: totalEth });
 
-    await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", nftData.token_id);
+    await supabase.from("nfts").update({ owner: account, sold: true }).eq("token_id", nftData.token_id);
     alert("✅ NFT purchased! Payment sent.");
     loadNFTs();
     document.getElementById('nft-modal').style.display = 'none';
@@ -2711,7 +2711,7 @@ async function transferNFT(nftData) {
 
     await nftContract.methods.safeTransferFrom(account, recipient, nftData.token_id).send({ from: account });
 
-    await client.from("nfts").update({ owner: recipient }).eq("token_id", nftData.token_id);
+    await supabase.from("nfts").update({ owner: recipient }).eq("token_id", nftData.token_id);
     alert("✅ NFT transferred! Fee sent.");
     loadNFTs();
     document.getElementById('nft-modal').style.display = 'none';
@@ -3051,7 +3051,7 @@ function setupAvatarSelectionAndGameStart() {
     document.getElementById('avatar-selection').style.display = 'none';
 
     // === Create and join Supabase channel ===
-    multiplayer.gameChannel = client.channel(roomId, {
+    multiplayer.gameChannel = supabase.channel(roomId, {
       config: {
         presence: { key: multiplayer.playerId },
         broadcast: { self: false }
