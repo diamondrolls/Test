@@ -3251,8 +3251,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+     });
+    });
+  }); // if inside DOMContentLoaded
+  } // if inside init3DScene or animate
+  } // extra
+  } // extra
+  } // extra
 
-/* ==============================
-   Final initialization message
-============================== */
-console.log("NFT Shooter Universe initialized successfully!");
+// Final log
+console.log("Script loaded — if you see this, syntax is fixed!");
