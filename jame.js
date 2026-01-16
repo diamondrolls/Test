@@ -3252,7 +3252,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
      };
-  }); // if inside DOMContentLoaded
   } // if inside init3DScene or animate
   } // extra
   } // extra
