@@ -3252,7 +3252,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
      };
-}
 
 // Final log
 console.log("Script loaded — if you see this, syntax is fixed!");
