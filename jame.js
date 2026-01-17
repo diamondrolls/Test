@@ -72,6 +72,13 @@ const playerStats = {
   maxHitCount: 50,
   gameTokens: 0
 };
+// ← Add the new declarations here
+let selectedAvatar = null;                   
+const buildingOwnership = new Map();
+let ownedBuildings = [];
+let lastSendTime = 0;
+const playerSize = new THREE.Vector3(5, 8, 5);
+let playerCollider = new THREE.Box3();
 
 // Game objects & systems
 let scene = null;
@@ -2134,7 +2141,6 @@ function createForSaleSign() {
 // Player hoverboard avatar
 function createPlayerAvatar() {
   const group = new THREE.Group();
-
   const boardGeometry = new THREE.PlaneGeometry(10, 10);
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: multiplayer ? multiplayer.playerColor : 0xC0C0C0,
