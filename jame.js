@@ -157,6 +157,77 @@ const bulletSpeed = 50;
 
 // Chat
 const activeChatMessages = new Map();
+// Quick stubs to prevent immediate crashes
+
+// Called from animate() — basic movement attempt with collision check
+function tryMoveTo(newPosition) {
+  // Update collider to proposed position
+  playerCollider.setFromCenterAndSize(
+    new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
+    playerSize
+  );
+
+  // Simple AABB collision test
+  let colliding = false;
+  for (const box of collisionObjects) {
+    if (playerCollider.intersectsBox(box)) {
+      colliding = true;
+      break;
+    }
+  }
+
+  if (!colliding) {
+    playerAvatar.position.copy(newPosition);
+  }
+  // else: stop / slide / etc. — improve later
+}
+
+// Called from init3DScene() — group all world creation calls
+function createWorld() {
+  // Call the functions you already have
+  createCity();
+  createUpperPlatform();
+  createMoonBridge();
+  createBoundaryWalls();
+  // createForSaleSign();           // optional
+  // Add ground plane if missing, etc.
+  // Example simple ground (if you don't have one yet):
+  const groundGeo = new THREE.PlaneGeometry(3000, 3000);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a3c34 });
+  const ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+// Called every frame in animate() — third-person follow
+function updateThirdPersonCamera() {
+  if (!playerAvatar) return;
+
+  const idealOffset = new THREE.Vector3(-15, 10, 0);   // behind & above
+  idealOffset.applyAxisAngle(new THREE.Vector3(0,1,0), cameraAngle);
+
+  const idealLookAt = playerAvatar.position.clone();
+  idealLookAt.y += 3;  // look at head height
+
+  const currentPos = camera.position;
+  currentPos.lerp(playerAvatar.position.clone().add(idealOffset), 0.08);
+
+  camera.position.copy(currentPos);
+  camera.lookAt(idealLookAt);
+}
+
+// Minimal UI updates (add near top or bottom — prevent "not defined")
+function updateTokenDisplay() {
+  const el = document.getElementById('token-balance') || document.getElementById('game-tokens');
+  if (el) el.textContent = playerStats.gameTokens;
+}
+
+function updateBulletDisplay() {
+  const el = document.getElementById('bullet-count');
+  if (el) el.textContent = playerStats.bullets;
+}
+
 
 // ================================================
 //          HELPER FUNCTIONS (early ones)
