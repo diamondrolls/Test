@@ -2427,112 +2427,118 @@ function onWindowResize() {
 ============================== */
 
 function init3DScene() {
-  // Scene setup
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x000033);
-  scene.fog = new THREE.FogExp2(0x000033, 0.0008);
+    // Scene setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000033);
+    scene.fog = new THREE.FogExp2(0x000033, 0.0008);
 
-  // Camera
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+    // Camera
+    camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        5000
+    );
 
-  // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  document.getElementById('canvas-container').appendChild(renderer.domElement);
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-  // Lighting
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambientLight);
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  directionalLight.position.set(100, 300, 100);
-  directionalLight.castShadow = true;
-  directionalLight.shadow.mapSize.width = 2048;
-  directionalLight.shadow.mapSize.height = 2048;
-  directionalLight.shadow.camera.near = 0.5;
-  directionalLight.shadow.camera.far = 2000;
-  directionalLight.shadow.camera.left = -600;
-  directionalLight.shadow.camera.right = 600;
-  directionalLight.shadow.camera.top = 600;
-  directionalLight.shadow.camera.bottom = -600;
-  scene.add(directionalLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(100, 300, 100);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 2000;
+    dirLight.shadow.camera.left = -600;
+    dirLight.shadow.camera.right = 600;
+    dirLight.shadow.camera.top = 600;
+    dirLight.shadow.camera.bottom = -600;
+    scene.add(dirLight);
 
-  // World creation
-  createWorld();
+    // ── Core game objects ───────────────────────────────
+    createWorld();
+    createPlayerAvatar();
 
-  // Player avatar
-  createPlayerAvatar();
+    // Initial camera setup
+    updateThirdPersonCamera();
 
-  // Initial camera position
-  updateThirdPersonCamera();
+    // ── Controls ────────────────────────────────────────
+    setupControls();
 
-   // end of init3DScene()
-  animate();
-  // Controls (desktop)
-  if (!isMobile) {
+    // ── Interaction & events ────────────────────────────
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
+
+    window.addEventListener('resize', onWindowResize);
+
+    initMiniMap();
+
+    // Optional: start clock here if not already started globally
+    // clock.start();   // ← if you want to be explicit
+
+    console.log('✅ 3D scene initialized — starting animation loop');
+    animate();           // ← kick off the loop once everything is ready
+}
+
+// ================================================
+//    CONTROLS SETUP (extracted for clarity)
+// ================================================
+function setupControls() {
+    if (isMobile) return;
+
     controls = new THREE.PointerLockControls(camera, document.body);
 
     document.addEventListener('click', () => {
-      if (!controls.isLocked && canMove) {
-        controls.lock();
-      }
+        if (!controls.isLocked && canMove) {
+            controls.lock();
+        }
     });
 
     controls.addEventListener('lock', () => {
-      document.getElementById('instructions').style.display = 'none';
+        document.getElementById('instructions').style.display = 'none';
     });
 
     controls.addEventListener('unlock', () => {
-      document.getElementById('instructions').style.display = 'block';
+        document.getElementById('instructions').style.display = 'block';
     });
 
-    // Keyboard controls
-    const onKeyDown = (event) => {
-      if (!canMove) return;
-      switch (event.code) {
-        case 'KeyW': case 'ArrowUp':    moveForward = true; break;
-        case 'KeyA': case 'ArrowLeft':  moveLeft = true; break;
-        case 'KeyS': case 'ArrowDown':  moveBackward = true; break;
-        case 'KeyD': case 'ArrowRight': moveRight = true; break;
-        case 'Space':                   shootBullet(); break;
-        case 'KeyB':                    showBulletPurchaseModal(); break;
-      }
-    };
+    document.addEventListener('keydown', (e) => {
+        if (!canMove) return;
+        switch (e.code) {
+            case 'KeyW': case 'ArrowUp':    moveForward  = true; break;
+            case 'KeyA': case 'ArrowLeft':  moveLeft     = true; break;
+            case 'KeyS': case 'ArrowDown':  moveBackward = true; break;
+            case 'KeyD': case 'ArrowRight': moveRight    = true; break;
+            case 'Space':                   shootBullet(); break;
+            case 'KeyB':                    showBulletPurchaseModal(); break;
+        }
+    });
 
-    const onKeyUp = (event) => {
-      switch (event.code) {
-        case 'KeyW': case 'ArrowUp':    moveForward = false; break;
-        case 'KeyA': case 'ArrowLeft':  moveLeft = false; break;
-        case 'KeyS': case 'ArrowDown':  moveBackward = false; break;
-        case 'KeyD': case 'ArrowRight': moveRight = false; break;
-      }
-    };
+    document.addEventListener('keyup', (e) => {
+        switch (e.code) {
+            case 'KeyW': case 'ArrowUp':    moveForward  = false; break;
+            case 'KeyA': case 'ArrowLeft':  moveLeft     = true; break;
+            case 'KeyS': case 'ArrowDown':  moveBackward = false; break;
+            case 'KeyD': case 'ArrowRight': moveRight    = false; break;
+        }
+    });
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
-
-    // Mouse look
     document.addEventListener('mousemove', (e) => {
-      if (controls.isLocked && canMove) {
-        targetCameraAngle -= e.movementX * 0.002;
-      }
+        if (controls.isLocked && canMove) {
+            targetCameraAngle -= e.movementX * 0.002;
+        }
     });
-  }
+}
 
-  // Raycaster for interaction
-  raycaster = new THREE.Raycaster();
-  mouse = new THREE.Vector2();
-
-  // Events
-  window.addEventListener('resize', onWindowResize);
-
-  // Mini-map
-  initMiniMap();
-
- // ================================================
-//           MAIN ANIMATION / GAME LOOP
+// ================================================
+//           MAIN GAME LOOP
 // ================================================
 function animate() {
     requestAnimationFrame(animate);
@@ -2540,82 +2546,83 @@ function animate() {
     const delta = clock.getDelta();
     hoverTime += delta;
 
-    // ── Player Movement ────────────────────────────────────────
-    if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
+    // Early exit if core objects are missing
+    if (!scene || !camera || !renderer || !playerAvatar) return;
+
+    // ── Player movement ────────────────────────────────────────
+    if (((controls && controls.isLocked) || isMobile) && canMove) {
         const moveSpeed = 200 * delta;
 
-        // Calculate direction based on current camera angle
-        const forward = new THREE.Vector3(Math.sin(cameraAngle), 0, Math.cos(cameraAngle));
-        const right   = new THREE.Vector3(Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2));
+        const forward = new THREE.Vector3(
+            Math.sin(cameraAngle), 0, Math.cos(cameraAngle)
+        );
+        const right = new THREE.Vector3(
+            Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2)
+        );
 
         const direction = new THREE.Vector3();
-        if (moveForward) direction.add(forward);
+        if (moveForward)  direction.add(forward);
         if (moveBackward) direction.sub(forward);
-        if (moveLeft) direction.sub(right);
-        if (moveRight) direction.add(right);
+        if (moveLeft)     direction.sub(right);
+        if (moveRight)    direction.add(right);
 
         if (direction.lengthSq() > 0) {
             direction.normalize();
 
-            // Desired position in horizontal plane
-            const desiredPos = playerAvatar.position.clone()
-                .add(direction.multiplyScalar(moveSpeed));
-
-            // ── Surface height detection ───────────────────────────
             let targetY = hoverHeight;
 
+            const pos = playerAvatar.position;
+            const desiredPos = pos.clone().addScaledVector(direction, moveSpeed);
+
             if (checkIfOnBridge(desiredPos)) {
-                const surfaceY = getBridgeSurfaceY(desiredPos);
-                if (surfaceY !== null) {
-                    targetY = surfaceY + hoverHeight;
-                }
+                const y = getBridgeSurfaceY(desiredPos);
+                if (y !== null) targetY = y + hoverHeight;
             } else if (checkIfOnUpper(desiredPos)) {
                 targetY = 750 + hoverHeight;
             }
 
-            // Apply hover bobbing effect
-            const finalY = targetY + Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
-            desiredPos.y = finalY;
+            desiredPos.y = targetY + Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
 
-            // Attempt movement
             tryMoveTo(desiredPos);
         }
     }
 
-    // ── Enforce world boundaries ───────────────────────────────
-    playerAvatar.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.x));
-    playerAvatar.position.z = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.z));
+    // World boundary clamp
+    if (playerAvatar) {
+        const p = playerAvatar.position;
+        p.x = THREE.MathUtils.clamp(p.x, -worldBoundary, worldBoundary);
+        p.z = THREE.MathUtils.clamp(p.z, -worldBoundary, worldBoundary);
+    }
 
-    // ── Mobile look controls ───────────────────────────────────
+    // Mobile look
     if (isMobile && canMove) {
         if (lookX !== 0 || lookY !== 0) {
             targetCameraAngle -= lookX * 0.01;
-            cameraHeight = Math.max(5, Math.min(30, cameraHeight - lookY * 0.1));
+            cameraHeight = THREE.MathUtils.clamp(cameraHeight - lookY * 0.1, 5, 30);
             lookX = lookY = 0;
         }
     }
 
-    // ── Update systems ─────────────────────────────────────────
+    // ── Updates ────────────────────────────────────────────────
     updateThirdPersonCamera();
     updateBullets();
     checkNFTInteraction();
     updateNFTLOD();
     updateAllChatBubbles();
 
-    if (botManager) botManager.update();
+    if (botManager)         botManager.update();
     if (window.updateMiniMap) window.updateMiniMap();
 
-    // Throttled multiplayer position sync (~10 times/sec)
+    // Throttled position sync
     const now = performance.now();
     if (now - lastSendTime > 100) {
         sendPositionUpdate();
         lastSendTime = now;
     }
 
-    // Final render
     renderer.render(scene, camera);
 }
-
+  
 /* ==============================
    NFT INTERACTION
 ============================== */
