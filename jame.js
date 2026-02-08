@@ -157,13 +157,12 @@ const activeChatMessages = new Map();
 
 // Called from animate() — basic movement attempt with collision check
 function tryMoveTo(newPosition) {
-  // Update collider to proposed position
+function tryMoveTo(newPosition) {
   playerCollider.setFromCenterAndSize(
     new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
     playerSize
   );
 
-  // Simple AABB collision test
   let colliding = false;
   for (const box of collisionObjects) {
     if (playerCollider.intersectsBox(box)) {
@@ -174,8 +173,9 @@ function tryMoveTo(newPosition) {
 
   if (!colliding) {
     playerAvatar.position.copy(newPosition);
+    return true;  // ← Add return value
   }
-  // else: stop / slide / etc. — improve later
+  return false;  // ← Add return value
 }
 
 // Called from init3DScene() — group all world creation calls
