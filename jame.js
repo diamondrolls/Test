@@ -2032,7 +2032,7 @@ function createMoonBridge() {
 
   const bridgeWidth = 20;
   const bridgeHeight = 5;
-  const segments = 200;
+  const segments = 20;
   bridgeSegments = [];
 
   for (let i = 0; i < segments; i++) {
@@ -2524,7 +2524,7 @@ function setupControls() {
     document.addEventListener('keyup', (e) => {
         switch (e.code) {
             case 'KeyW': case 'ArrowUp':    moveForward  = false; break;
-            case 'KeyA': case 'ArrowLeft':  moveLeft     = true; break;
+            case 'KeyA': case 'ArrowLeft':  moveLeft     = false; break;
             case 'KeyS': case 'ArrowDown':  moveBackward = false; break;
             case 'KeyD': case 'ArrowRight': moveRight    = false; break;
         }
