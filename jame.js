@@ -157,7 +157,6 @@ const activeChatMessages = new Map();
 
 // Called from animate() — basic movement attempt with collision check
 function tryMoveTo(newPosition) {
-function tryMoveTo(newPosition) {
   playerCollider.setFromCenterAndSize(
     new THREE.Vector3(newPosition.x, newPosition.y, newPosition.z),
     playerSize
