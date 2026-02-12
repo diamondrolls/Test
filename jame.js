@@ -81,7 +81,7 @@ let scene = null;
 let camera = null;
 let renderer = null;
 let controls = null;
-
+let miniMapScene, miniMapCamera, miniMapRenderer;
 let nftObjects = [];
 let bullets = [];
 let buildingObjects = [];
@@ -90,7 +90,6 @@ let nftPlatforms = [];
 let bridgeSegments = [];
 let collisionObjects = [];
 let roofObjects = [];
-
 let playerAvatar = null;
 let hoverBoard = null;
 
