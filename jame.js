@@ -2766,6 +2766,73 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+/* ==============================
+   GAME INITIALIZATION
+============================== */
+function startGame() {
+  console.log('🎮 Starting game...');
+  init3DScene();
+  initSidebar();
+  initTokenSystem();
+  initBuildingOwnership();
+  setupBulletPurchaseWithTokens();
+  loadNFTs();
+  
+  botManager = new BotManager(scene, multiplayer, {
+    maxBots: 5,
+    roamRadius: worldBoundary * 0.8
+  });
+}
+
+/* ==============================
+   MULTIPLAYER FUNCTIONS
+============================== */
+function sendPositionUpdate() {
+  if (!multiplayer.gameChannel || !playerAvatar) return;
+  multiplayer.gameChannel.send({
+    type: 'broadcast',
+    event: 'player-move',
+    payload: {
+      playerId: multiplayer.playerId,
+      position: playerAvatar.position.toArray(),
+      rotation: cameraAngle
+    }
+  });
+}
+
+function createOtherPlayerAvatar(playerId, payload) {
+  const group = new THREE.Group();
+  const geometry = new THREE.BoxGeometry(5, 8, 5);
+  const material = new THREE.MeshLambertMaterial({ 
+    color: payload.color || 0xFF6B6B 
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  group.add(mesh);
+  scene.add(group);
+  
+  multiplayer.otherPlayers.set(playerId, { 
+    group, 
+    name: payload.name || 'Player' 
+  });
+}
+
+function updateOtherPlayerPosition(playerId, position, rotation) {
+  const player = multiplayer.otherPlayers.get(playerId);
+  if (player && player.group) {
+    player.group.position.fromArray(position);
+    player.group.rotation.y = rotation;
+  }
+}
+
+function removeOtherPlayerAvatar(playerId) {
+  const player = multiplayer.otherPlayers.get(playerId);
+  if (player && player.group) {
+    scene.remove(player.group);
+    multiplayer.otherPlayers.delete(playerId);
+  }
+}
+
 /* ==============================
    AVATAR SELECTION + ROOM JOIN + GAME START
 ============================== */
