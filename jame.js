@@ -40,9 +40,9 @@ const GAME_CONFIG = {
   MAX_SALE_PRICE: 1000000
 };
 // ================================================
-// GLOBAL GAME STATE
-// ================================================
 // Web3 & Wallet
+// ================================================
+
 let web3 = null;
 let account = null;
 let nftContract = null;
