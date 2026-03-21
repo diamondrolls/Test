@@ -974,7 +974,7 @@ async function purchaseTokens() {
 async function initBuildingOwnership() {
   await loadBuildingOwnership();
   setupBuildingInteraction();
-}
+
 const { data, error } = await client
   .from('building_ownership')
   .select('*')
