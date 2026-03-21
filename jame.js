@@ -975,6 +975,13 @@ async function initBuildingOwnership() {
   await loadBuildingOwnership();
   setupBuildingInteraction();
 }
+const { data, error } = await client
+  .from('building_ownership')
+  .select('*')
+  .limit(3);
+
+console.log('Buildings:', data);
+console.log('Error:', error);
 
 async function loadBuildingOwnership() {
   try {
