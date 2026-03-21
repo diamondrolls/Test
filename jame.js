@@ -982,7 +982,7 @@ const { data, error } = await client
 
 console.log('Buildings:', data);
 console.log('Error:', error);
-
+   }
 async function loadBuildingOwnership() {
   try {
     const { data, error } = await client.from("building_ownership").select("*");
