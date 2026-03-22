@@ -563,6 +563,7 @@ class BotManager {
 ============================== */
 
 document.addEventListener('DOMContentLoaded', function() {
+   document.getElementById("connectBtn").addEventListener("click", connectWallet);
   client.auth.getSession().then(({ data }) => {
     if (!data.session) {
       window.location.href = 'https://diamondrolls.github.io/play/';
