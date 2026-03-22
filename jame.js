@@ -2703,7 +2703,11 @@ function openNFTModal(nftData) {
     transferBtn.onclick = () => transferNFT(nftData);
     actions.appendChild(transferBtn);
   }
-  
+  // After successful connectWallet()
+if (document.getElementById('nft-modal').style.display === 'block') {
+  // If modal is already open, re-render actions with connected state
+  openNFTModal(currentNftData);  // you'll need to store the current nftData when modal opens
+}
   document.getElementById('nft-modal').style.display = 'block';
 }
 
