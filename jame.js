@@ -2716,15 +2716,6 @@ document.getElementById('close-modal').addEventListener('click', function() {
   document.getElementById('nft-modal').style.display = 'none';
 });
 
-document.addEventListener('click', function onClick(event) {
-  if (!canMove) return;
-  
-  if (((!isMobile && controls && controls.isLocked) || (isMobile && currentIntersected)) && currentIntersected) {
-    const nftData = currentIntersected.userData.nftData;
-    openNFTModal(nftData);
-  }
-});
-
 async function buyNFT(nftData) {
   if (!account) return alert("Connect wallet first.");
   try {
