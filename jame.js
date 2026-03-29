@@ -3281,7 +3281,7 @@ function removeOtherPlayerAvatar(playerId) {
 async function startGame() {
   initSidebar();
   init3DScene();
-
+setupNFTInteraction();
   // Spawn only 4 assistant bots
   botManager = new BotManager(scene, multiplayer, {
     maxBots: 4,
