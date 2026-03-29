@@ -2458,6 +2458,48 @@ function init3DScene() {
   clock = new THREE.Clock();
   animate();
 }
+function setupNFTInteraction() {
+  const canvas = renderer.domElement;
+
+  const onNFTTap = (event) => {
+    if (!canMove) return;
+
+    let clientX = event.clientX;
+    let clientY = event.clientY;
+
+    if (event.touches && event.touches.length > 0) {
+      clientX = event.touches[0].clientX;
+      clientY = event.touches[0].clientY;
+    } else if (event.changedTouches && event.changedTouches.length > 0) {
+      clientX = event.changedTouches[0].clientX;
+      clientY = event.changedTouches[0].clientY;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(nftObjects, false);
+
+    if (intersects.length > 0) {
+      const hitObject = intersects[0].object;
+      const nftData = hitObject.userData?.nftData;
+
+      if (nftData) {
+        console.log('✅ NFT tapped successfully:', nftData.name || nftData.title || 'NFT');
+        openNFTModal(nftData);
+      }
+    }
+  };
+
+  canvas.addEventListener('pointerup', onNFTTap, { passive: true });
+  canvas.addEventListener('touchend', onNFTTap, { passive: true });
+  canvas.addEventListener('click', onNFTTap, { passive: true });
+
+  canvas.style.touchAction = 'none';
+}
 
 function updateThirdPersonCamera() {
   if (!playerAvatar) return;
@@ -3239,50 +3281,6 @@ async function startGame() {
   initSidebar();
   init3DScene();
 setupNFTInteraction();
-   // NEW: Reliable NFT tap / click handler (works on mobile + desktop)
-function setupNFTInteraction() {
-  const canvas = renderer.domElement;   // Target the Three.js canvas directly
-
-  const onNFTTap = (event) => {
-    if (!canMove) return;
-
-    // Get tap/mouse position (works for both touch and mouse)
-    let clientX = event.clientX;
-    let clientY = event.clientY;
-
-    if (event.touches && event.touches.length > 0) {
-      clientX = event.touches[0].clientX;
-      clientY = event.touches[0].clientY;
-    }
-
-    // Convert to normalized device coordinates (-1 to +1)
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Fresh raycast at the exact tap position
-    raycaster.setFromCamera(mouse, camera);
-
-    const intersects = raycaster.intersectObjects(nftObjects, false);
-
-    if (intersects.length > 0) {
-      const hitObject = intersects[0].object;
-      const nftData = hitObject.userData?.nftData;
-
-      if (nftData) {
-        console.log('NFT tapped successfully:', nftData.name || nftData.title || 'NFT');
-        openNFTModal(nftData);
-      }
-    }
-  };
-
-  // Best events for mobile + desktop
-  canvas.addEventListener('pointerup', onNFTTap, { passive: true });
-  canvas.addEventListener('click', onNFTTap, { passive: true }); // fallback
-
-  // Prevent unwanted touch behaviors on the canvas
-  canvas.style.touchAction = 'none';
-}
   // Spawn only 4 assistant bots
   botManager = new BotManager(scene, multiplayer, {
     maxBots: 4,
