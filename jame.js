@@ -2746,6 +2746,8 @@ function openNFTModal(nftData) {
     transferBtn.onclick = () => transferNFT(nftData);
     actions.appendChild(transferBtn);
   }
+   const paypal = document.getElementById('paypal-nft-modal');
+if (paypal) paypal.classList.add('active');
   // After successful connectWallet()
 if (document.getElementById('nft-modal').style.display === 'block') {
   // If modal is already open, re-render actions with connected state
