@@ -132,6 +132,7 @@ let playerStats = {
 
 // Game systems
 let nftCards = [];
+let ownedNFTs = [];
 let bullets = [];
 let bulletSpeed = 50;
 let lastShotTime = 0;
@@ -1839,6 +1840,7 @@ async function connectWallet() {
 
     nftContract = new web3.eth.Contract(NFT_ABI, NFT_CONTRACT_ADDRESS);
     await loadTokenBalance();
+    await loadOwnedNFTs();
     updateOwnedBuildings();
     
     if (document.getElementById('avatar-selection').style.display === 'none') {
@@ -2768,6 +2770,7 @@ async function buyNFT(nftData) {
     await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", nftData.token_id);
     alert("✅ NFT purchased! Payment sent.");
     loadNFTs();
+    loadOwnedNFTs();
     document.getElementById('nft-modal').style.display = 'none';
   } catch(err) { 
     console.error(err); 
@@ -2792,6 +2795,76 @@ async function transferNFT(nftData) {
   } catch(err) { 
     console.error(err); 
     alert("Transfer failed: " + err.message); 
+  }
+}
+
+/* ==============================
+   IN-GAME WALLET (OWNED NFTs)
+============================== */
+
+async function loadOwnedNFTs() {
+  const grid = document.getElementById('owned-nfts-grid');
+  if (!account) {
+    document.getElementById('nft-balance').textContent = '0';
+    if (grid) grid.innerHTML = '<p style="color:#94a3b8; font-size:0.8rem; text-align:center; width:100%;">Connect wallet to view your NFTs</p>';
+    return;
+  }
+  try {
+    const { data, error } = await client.from('nfts').select('token_id, name, image_url, description, price_eth, owner, collection').eq('owner', account);
+    if (error) throw error;
+    ownedNFTs = data || [];
+    document.getElementById('nft-balance').textContent = ownedNFTs.length;
+    renderOwnedNFTs(ownedNFTs);
+  } catch (err) {
+    console.error('Failed to load owned NFTs:', err);
+  }
+}
+
+function renderOwnedNFTs(nfts) {
+  const grid = document.getElementById('owned-nfts-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!nfts || nfts.length === 0) {
+    grid.innerHTML = '<p style="color:#94a3b8; font-size:0.8rem; text-align:center; width:100%;">No NFTs in your wallet yet</p>';
+    return;
+  }
+  nfts.forEach(nft => {
+    const card = document.createElement('div');
+    card.className = 'owned-nft-card';
+    card.title = nft.name || `NFT #${nft.token_id}`;
+    const img = document.createElement('img');
+    img.src = nft.image_url || 'https://via.placeholder.com/80x80?text=NFT';
+    img.alt = nft.name || 'NFT';
+    const label = document.createElement('div');
+    label.className = 'owned-nft-name';
+    label.textContent = nft.name || `#${nft.token_id}`;
+    card.appendChild(img);
+    card.appendChild(label);
+    card.addEventListener('click', () => openNFTModal(nft));
+    grid.appendChild(card);
+  });
+}
+
+function setupInGameWallet() {
+  const transferBtn = document.getElementById('transfer-nft-btn-sidebar');
+  const purchaseBtn = document.getElementById('purchase-nft-btn-sidebar');
+  const walletSection = document.getElementById('ingame-wallet-section');
+  const sidebarContent = document.getElementById('sidebar-content');
+
+  if (transferBtn && walletSection && sidebarContent) {
+    transferBtn.addEventListener('click', () => {
+      walletSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  if (purchaseBtn) {
+    purchaseBtn.addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.classList.remove('active');
+        document.querySelector('.modal-overlay')?.classList.remove('active');
+      }
+    });
   }
 }
 
@@ -3295,6 +3368,8 @@ setupNFTInteraction();
   initTokenSystem();
   initBuildingOwnership();
   setupBulletPurchaseWithTokens();
+  setupInGameWallet();
+  if (account) loadOwnedNFTs();
 
   // Make sure chat bubbles follow players smoothly
   // (this was added in the improved chat system)
