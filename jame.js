@@ -2795,7 +2795,7 @@ function initNftModalNavigation() {
     if (e.key === 'ArrowRight') showNextNftInModal();
   });
 }
-function openNFTModal(nftData) {
+function openNFTModal(nftData, opts = {}) {
   if (!canMove) return;
   
   document.getElementById('modal-image').src = nftData.image_url || 'https://via.placeholder.com/400x400?text=NFT+Image';
