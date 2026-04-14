@@ -149,6 +149,9 @@ let worldBoundary = worldSize / 2 - 50;
 // 3D scene variables
 let scene, camera, renderer, controls;
 let nftObjects = [], environmentObjects = [], buildingObjects = [];
+// --- NFT modal navigation (created_at order) ---
+let nftListByCreatedAt = [];     // array of nft rows returned by Supabase (newest first)
+let currentModalNftIndex = -1;   // index into nftListByCreatedAt
 let raycaster, mouse;
 let currentIntersected = null;
 let miniMapScene, miniMapCamera, miniMapRenderer;
