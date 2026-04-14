@@ -603,7 +603,11 @@ async function loadNFTs() {
     }
 
     console.log(`Loading ${data.length} NFTs`);
-    createNFTPlaceholders(data);
+
+// keep the modal navigation list in the same order as created_at (already ordered desc)
+nftListByCreatedAt = data.slice();
+
+createNFTPlaceholders(data);
     processLoadingQueue(); // Start the queue — no await needed here
     console.timeEnd('NFT Loading');
     
