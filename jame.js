@@ -579,6 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupMobileControls();
   }
    setupAvatarSelectionAndGameStart();
+     initNftModalNavigation();
 });
 
    /* ==============================
