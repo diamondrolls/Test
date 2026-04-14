@@ -2725,7 +2725,76 @@ function isNFTBlockedByBuilding(nft) {
   }
   return false;
 }
+function getNftIndexInCreatedAtList(nftData) {
+  if (!nftData || !nftListByCreatedAt || nftListByCreatedAt.length === 0) return -1;
 
+  // Prefer token_id match (best unique key in your data)
+  if (nftData.token_id !== undefined && nftData.token_id !== null) {
+    const idx = nftListByCreatedAt.findIndex(n => String(n.token_id) === String(nftData.token_id));
+    if (idx !== -1) return idx;
+  }
+
+  // Fallback: image_url match (less ideal but works if token_id is missing)
+  if (nftData.image_url) {
+    const idx = nftListByCreatedAt.findIndex(n => n.image_url === nftData.image_url);
+    if (idx !== -1) return idx;
+  }
+
+  return -1;
+}
+
+function updateNftModalNavButtons() {
+  const prevBtn = document.getElementById('prev-nft-btn');
+  const nextBtn = document.getElementById('next-nft-btn');
+  if (!prevBtn || !nextBtn) return;
+
+  const hasList = Array.isArray(nftListByCreatedAt) && nftListByCreatedAt.length > 0;
+  const validIndex = currentModalNftIndex >= 0 && currentModalNftIndex < nftListByCreatedAt.length;
+
+  // Hide/disable if list isn't ready
+  if (!hasList || !validIndex) {
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    return;
+  }
+
+  // Wrap-around behavior (so you can keep tapping forever)
+  prevBtn.disabled = false;
+  nextBtn.disabled = false;
+}
+
+function showPrevNftInModal() {
+  if (!nftListByCreatedAt.length) return;
+  if (currentModalNftIndex < 0) return;
+
+  currentModalNftIndex = (currentModalNftIndex - 1 + nftListByCreatedAt.length) % nftListByCreatedAt.length;
+  openNFTModal(nftListByCreatedAt[currentModalNftIndex], { fromNav: true });
+}
+
+function showNextNftInModal() {
+  if (!nftListByCreatedAt.length) return;
+  if (currentModalNftIndex < 0) return;
+
+  currentModalNftIndex = (currentModalNftIndex + 1) % nftListByCreatedAt.length;
+  openNFTModal(nftListByCreatedAt[currentModalNftIndex], { fromNav: true });
+}
+
+function initNftModalNavigation() {
+  const prevBtn = document.getElementById('prev-nft-btn');
+  const nextBtn = document.getElementById('next-nft-btn');
+
+  if (prevBtn) prevBtn.addEventListener('click', (e) => { e.stopPropagation(); showPrevNftInModal(); });
+  if (nextBtn) nextBtn.addEventListener('click', (e) => { e.stopPropagation(); showNextNftInModal(); });
+
+  // Keyboard arrows when modal is open (desktop)
+  document.addEventListener('keydown', (e) => {
+    const modal = document.getElementById('nft-modal');
+    if (!modal || modal.style.display !== 'block') return;
+
+    if (e.key === 'ArrowLeft') showPrevNftInModal();
+    if (e.key === 'ArrowRight') showNextNftInModal();
+  });
+}
 function openNFTModal(nftData) {
   if (!canMove) return;
   
