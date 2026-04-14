@@ -556,7 +556,13 @@
   <div style="position:relative; width:min(520px, 92vw); margin:8vh auto; background:#111; color:#fff; border-radius:12px; padding:16px;">
     <button id="close-modal" style="float:right; background:#ef4444;">X</button>
 
-    <img id="modal-image" alt="NFT" style="width:100%; border-radius:10px; margin-top:8px;" />
+<div class="nft-modal-media">
+  <button id="prev-nft-btn" class="nft-nav-btn" aria-label="Previous NFT" type="button">&lt;</button>
+
+  <img id="modal-image" alt="NFT" style="width:100%; border-radius:10px;" />
+
+  <button id="next-nft-btn" class="nft-nav-btn" aria-label="Next NFT" type="button">&gt;</button>
+</div>
     <h2 id="modal-title" style="margin:12px 0 6px;"></h2>
     <p id="modal-description" style="color:#cbd5e1;"></p>
 
