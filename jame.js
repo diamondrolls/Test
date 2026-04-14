@@ -2797,7 +2797,11 @@ function initNftModalNavigation() {
 }
 function openNFTModal(nftData, opts = {}) {
   if (!canMove) return;
-  
+    // Track current modal NFT index (created_at order)
+  const idx = getNftIndexInCreatedAtList(nftData);
+  if (idx !== -1) currentModalNftIndex = idx;
+
+  updateNftModalNavButtons();
   document.getElementById('modal-image').src = nftData.image_url || 'https://via.placeholder.com/400x400?text=NFT+Image';
   document.getElementById('modal-title').textContent = nftData.name || `${nftData.collection || 'Untitled'} #${nftData.token_id || ''}`;
   document.getElementById('modal-description').textContent = nftData.description || 'No description available';
