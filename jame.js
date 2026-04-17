@@ -10,7 +10,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const PAYPAL_NOTIFY_URL = `${SUPABASE_URL}/functions/v1/paypal-ipn`;
 const PAYPAL_BUTTON_IDS = {
   nft_cards: "JBWGFPNTRAMJA",
-  mint_fee: ""
+  mint_fee: null
 };
 const PAYPAL_MINT_FEE_USD = 20;
 const PAYPAL_NFT_PRICES_USD = {
@@ -603,7 +603,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('mobile-instructions').style.display = 'block';
     setupMobileControls();
   }
-   setupPayPalFormIntegration();
+  setupPayPalFormIntegration();
    setupAvatarSelectionAndGameStart();
      initNftModalNavigation();
 });
