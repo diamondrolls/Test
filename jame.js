@@ -730,6 +730,14 @@ function setupPayPalFormIntegration() {
     return;
   }
 
+  if (!PAYPAL_BUTTON_IDS.mint_fee) {
+    const mintFeeOption = purchaseTypeSelect.querySelector('option[value="mint_fee"]');
+    if (mintFeeOption) {
+      mintFeeOption.disabled = true;
+      mintFeeOption.textContent = 'Mint/Transfer Fee ($20.00 USD) - setup required';
+    }
+  }
+
   notifyUrlInput.value = PAYPAL_NOTIFY_URL;
   returnUrlInput.value = window.location.href;
   cancelUrlInput.value = window.location.href;
@@ -3045,8 +3053,8 @@ async function transferNFT(nftData) {
   const recipient = prompt("Enter recipient wallet address:");
   if (!recipient) return;
   try {
-    const feeEth = web3.utils.toWei((PAYPAL_MINT_FEE_USD / 1000).toString(), 'ether');
-    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: feeEth });
+    const transferFeeEth = web3.utils.toWei((PAYPAL_MINT_FEE_USD / 1000).toString(), 'ether');
+    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: transferFeeEth });
 
     await nftContract.methods.safeTransferFrom(account, recipient, nftData.token_id).send({ from: account });
 
