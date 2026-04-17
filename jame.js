@@ -14,6 +14,7 @@ const PAYPAL_BUTTON_IDS = {
 };
 const PAYPAL_MINT_FEE_USD = 20;
 const PAYPAL_MINT_FEE_QUANTITY = 1;
+const ETH_USD_DIVISOR_FOR_TRANSFER_FEE = 1000;
 const PAYPAL_NFT_PRICES_USD = {
   1: 6,
   5: 30,
@@ -653,15 +654,22 @@ function syncPayPalPurchaseTypeUI() {
   }
 
   hostedButtonInput.value = buttonId || PAYPAL_BUTTON_IDS.nft_cards;
+  quantitySelect.replaceChildren();
 
   if (purchaseType === 'mint_fee') {
-    quantitySelect.innerHTML = `<option value="${PAYPAL_MINT_FEE_QUANTITY}">${PAYPAL_MINT_FEE_QUANTITY} $${PAYPAL_MINT_FEE_USD.toFixed(2)} USD</option>`;
+    const mintOption = document.createElement('option');
+    mintOption.value = String(PAYPAL_MINT_FEE_QUANTITY);
+    mintOption.textContent = `${PAYPAL_MINT_FEE_QUANTITY} $${PAYPAL_MINT_FEE_USD.toFixed(2)} USD`;
+    quantitySelect.appendChild(mintOption);
     quantitySelect.disabled = true;
   } else {
     quantitySelect.disabled = false;
-    quantitySelect.innerHTML = Object.entries(PAYPAL_NFT_PRICES_USD)
-      .map(([qty, amount]) => `<option value="${qty}">${qty} $${amount.toFixed(2)} USD</option>`)
-      .join('');
+    Object.entries(PAYPAL_NFT_PRICES_USD).forEach(([qty, amount]) => {
+      const option = document.createElement('option');
+      option.value = qty;
+      option.textContent = `${qty} $${amount.toFixed(2)} USD`;
+      quantitySelect.appendChild(option);
+    });
   }
 }
 
@@ -3035,7 +3043,7 @@ async function buyNFT(nftData) {
   if (!account) return alert("Connect wallet first.");
   try {
     const priceEth = nftData.price_eth || 0.1;
-    const totalEth = web3.utils.toWei((Number(priceEth) + 6/1000).toString(), 'ether');
+    const totalEth = web3.utils.toWei((Number(priceEth) + 6 / ETH_USD_DIVISOR_FOR_TRANSFER_FEE).toString(), 'ether');
     await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: totalEth });
 
     await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", nftData.token_id);
@@ -3053,7 +3061,7 @@ async function transferNFT(nftData) {
   const recipient = prompt("Enter recipient wallet address:");
   if (!recipient) return;
   try {
-    const transferFeeEth = web3.utils.toWei((PAYPAL_MINT_FEE_USD / 1000).toString(), 'ether');
+    const transferFeeEth = web3.utils.toWei((PAYPAL_MINT_FEE_USD / ETH_USD_DIVISOR_FOR_TRANSFER_FEE).toString(), 'ether');
     await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: transferFeeEth });
 
     await nftContract.methods.safeTransferFrom(account, recipient, nftData.token_id).send({ from: account });

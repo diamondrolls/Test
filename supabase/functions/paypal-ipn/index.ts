@@ -19,7 +19,7 @@ const MINT_FEE_USD = 20;
 
 function toCents(amount: string | number): number {
   const value = typeof amount === 'number' ? amount : Number.parseFloat(String(amount));
-  if (!Number.isFinite(value)) return Number.NaN;
+  if (!Number.isFinite(value) || value < 0) return Number.NaN;
   return Math.round(value * 100);
 }
 
