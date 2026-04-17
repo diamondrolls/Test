@@ -1,7 +1,7 @@
 create table if not exists public.user_balances (
   user_id uuid primary key references auth.users(id) on delete cascade,
   nft_cards integer not null default 0 check (nft_cards >= 0),
-  bullets integer not null default 100 check (bullets >= 0 and bullets <= 500), -- game rule: max bullets is 500
+  bullets integer not null default 100 check (bullets >= 0 and bullets <= 500), -- game rule: max bullets is 500 (inclusive)
   mint_fee_credits integer not null default 0 check (mint_fee_credits >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

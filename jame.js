@@ -13,6 +13,7 @@ const PAYPAL_BUTTON_IDS = {
   mint_fee: null
 };
 const PAYPAL_MINT_FEE_USD = 20;
+const PAYPAL_MINT_FEE_QUANTITY = 1;
 const PAYPAL_NFT_PRICES_USD = {
   1: 6,
   5: 30,
@@ -590,12 +591,10 @@ document.addEventListener('DOMContentLoaded', function() {
       window.location.href = 'https://diamondrolls.github.io/play/';
       return;
     }
-    currentSupabaseUserId = data.session.user?.id || null;
-    refreshUserBalances();
+    updateCurrentUserAndBalances(data.session);
   });
   client.auth.onAuthStateChange((_event, session) => {
-    currentSupabaseUserId = session?.user?.id || null;
-    refreshUserBalances();
+    updateCurrentUserAndBalances(session);
   });
 
   if (isMobile) {
@@ -615,6 +614,11 @@ function updatePayPalStatus(message, isError = false) {
   statusEl.style.color = isError ? '#fca5a5' : '#cbd5e1';
 }
 
+function updateCurrentUserAndBalances(session) {
+  currentSupabaseUserId = session?.user?.id || null;
+  refreshUserBalances();
+}
+
 async function resolveSupabaseUserId() {
   if (currentSupabaseUserId) return currentSupabaseUserId;
   const { data } = await client.auth.getUser();
@@ -629,7 +633,7 @@ function setPayPalCustomField(userId) {
   if (!customInput || !purchaseTypeSelect || !quantitySelect || !userId) return;
 
   const purchaseType = purchaseTypeSelect.value === 'mint_fee' ? 'mint_fee' : 'nft_cards';
-  const quantity = purchaseType === 'mint_fee' ? 1 : Number.parseInt(quantitySelect.value, 10) || 1;
+  const quantity = purchaseType === 'mint_fee' ? PAYPAL_MINT_FEE_QUANTITY : Number.parseInt(quantitySelect.value, 10) || 1;
   customInput.value = `${userId}:${purchaseType}:${quantity}`;
 }
 
@@ -651,7 +655,7 @@ function syncPayPalPurchaseTypeUI() {
   hostedButtonInput.value = buttonId || PAYPAL_BUTTON_IDS.nft_cards;
 
   if (purchaseType === 'mint_fee') {
-    quantitySelect.innerHTML = `<option value="1">1 $${PAYPAL_MINT_FEE_USD.toFixed(2)} USD</option>`;
+    quantitySelect.innerHTML = `<option value="${PAYPAL_MINT_FEE_QUANTITY}">${PAYPAL_MINT_FEE_QUANTITY} $${PAYPAL_MINT_FEE_USD.toFixed(2)} USD</option>`;
     quantitySelect.disabled = true;
   } else {
     quantitySelect.disabled = false;

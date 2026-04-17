@@ -7,8 +7,8 @@ This repository uses a PayPal IPN flow with a Supabase Edge Function so NFT/mint
 - Edge Function: `supabase/functions/paypal-ipn/index.ts`
 - Migration: `supabase/migrations/20260417230000_paypal_ipn.sql`
 - Frontend PayPal integration updates in:
-  - `/home/runner/work/Test/Test/index.html`
-  - `/home/runner/work/Test/Test/jame.js`
+  - `index.html`
+  - `jame.js`
 
 ## Required Supabase / PayPal secrets
 
