@@ -7,6 +7,22 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const TOKEN_FUNCTION_URL = "https://fjtzodjudyctqacunlqp.supabase.co/functions/v1/game-tokens";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const PAYPAL_NOTIFY_URL = `${SUPABASE_URL}/functions/v1/paypal-ipn`;
+const PAYPAL_BUTTON_IDS = {
+  nft_cards: "JBWGFPNTRAMJA",
+  mint_fee: null
+};
+const PAYPAL_MINT_FEE_USD = 20;
+const PAYPAL_MINT_FEE_QUANTITY = 1;
+const ETH_USD_DIVISOR_FOR_TRANSFER_FEE = 1000;
+const PAYPAL_NFT_PRICES_USD = {
+  1: 6,
+  5: 30,
+  10: 50,
+  30: 180,
+  60: 360,
+  100: 600
+};
 
 const NFT_CONTRACT_ADDRESS = "0x3ed4474a942d885d5651c8c56b238f3f4f524a5c";
 
@@ -159,6 +175,10 @@ let playerAvatar;
 let clock = new THREE.Clock();
 let prevTime = 0;
 let lastSendTime = 0;
+let currentSupabaseUserId = null;
+let paypalBalancePollTimer = null;
+let lastKnownNftBalance = 0;
+let lastKnownMintFeeCredits = 0;
 
 // Camera controls
 let cameraDistance = 25;
@@ -570,7 +590,12 @@ document.addEventListener('DOMContentLoaded', function() {
   client.auth.getSession().then(({ data }) => {
     if (!data.session) {
       window.location.href = 'https://diamondrolls.github.io/play/';
+      return;
     }
+    updateCurrentUserAndBalances(data.session);
+  });
+  client.auth.onAuthStateChange((_event, session) => {
+    updateCurrentUserAndBalances(session);
   });
 
   if (isMobile) {
@@ -578,9 +603,185 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('mobile-instructions').style.display = 'block';
     setupMobileControls();
   }
+  setupPayPalFormIntegration();
    setupAvatarSelectionAndGameStart();
      initNftModalNavigation();
 });
+
+function updatePayPalStatus(message, isError = false) {
+  const statusEl = document.getElementById('paypal-status');
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.style.color = isError ? '#fca5a5' : '#cbd5e1';
+}
+
+function updateCurrentUserAndBalances(session) {
+  currentSupabaseUserId = session?.user?.id || null;
+  refreshUserBalances();
+}
+
+async function resolveSupabaseUserId() {
+  if (currentSupabaseUserId) return currentSupabaseUserId;
+  const { data } = await client.auth.getUser();
+  currentSupabaseUserId = data?.user?.id || null;
+  return currentSupabaseUserId;
+}
+
+function setPayPalCustomField(userId) {
+  const customInput = document.getElementById('paypal-custom');
+  const purchaseTypeSelect = document.getElementById('paypal-purchase-type');
+  const quantitySelect = document.getElementById('paypal-quantity');
+  if (!customInput || !purchaseTypeSelect || !quantitySelect || !userId) return;
+
+  const purchaseType = purchaseTypeSelect.value === 'mint_fee' ? 'mint_fee' : 'nft_cards';
+  const quantity = purchaseType === 'mint_fee' ? PAYPAL_MINT_FEE_QUANTITY : Number.parseInt(quantitySelect.value, 10) || 1;
+  customInput.value = `${userId}:${purchaseType}:${quantity}`;
+}
+
+function syncPayPalPurchaseTypeUI() {
+  const purchaseTypeSelect = document.getElementById('paypal-purchase-type');
+  const quantitySelect = document.getElementById('paypal-quantity');
+  const hostedButtonInput = document.getElementById('paypal-hosted-button-id');
+  if (!purchaseTypeSelect || !quantitySelect || !hostedButtonInput) return;
+
+  const purchaseType = purchaseTypeSelect.value === 'mint_fee' ? 'mint_fee' : 'nft_cards';
+  const buttonId = PAYPAL_BUTTON_IDS[purchaseType];
+
+  if (!buttonId) {
+    updatePayPalStatus('Mint fee PayPal hosted button ID is not configured.', true);
+  } else {
+    updatePayPalStatus('Credits are applied only after server-side PayPal confirmation.');
+  }
+
+  hostedButtonInput.value = buttonId || PAYPAL_BUTTON_IDS.nft_cards;
+  quantitySelect.replaceChildren();
+
+  if (purchaseType === 'mint_fee') {
+    const mintOption = document.createElement('option');
+    mintOption.value = String(PAYPAL_MINT_FEE_QUANTITY);
+    mintOption.textContent = `${PAYPAL_MINT_FEE_QUANTITY} $${PAYPAL_MINT_FEE_USD.toFixed(2)} USD`;
+    quantitySelect.appendChild(mintOption);
+    quantitySelect.disabled = true;
+  } else {
+    quantitySelect.disabled = false;
+    Object.entries(PAYPAL_NFT_PRICES_USD).forEach(([qty, amount]) => {
+      const option = document.createElement('option');
+      option.value = qty;
+      option.textContent = `${qty} $${amount.toFixed(2)} USD`;
+      quantitySelect.appendChild(option);
+    });
+  }
+}
+
+async function refreshUserBalances() {
+  const userId = await resolveSupabaseUserId();
+  if (!userId) return;
+
+  const { data, error } = await client
+    .from('user_balances')
+    .select('nft_cards, bullets, mint_fee_credits')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load user balances:', error);
+    return;
+  }
+
+  const nftCount = data?.nft_cards ?? 0;
+  lastKnownNftBalance = nftCount;
+  lastKnownMintFeeCredits = data?.mint_fee_credits ?? 0;
+  const nftBalanceEl = document.getElementById('nft-balance');
+  if (nftBalanceEl) nftBalanceEl.textContent = String(nftCount);
+
+  if (typeof data?.bullets === 'number') {
+    playerStats.bullets = Math.min(data.bullets, playerStats.maxBullets);
+    updateBulletDisplay();
+  }
+}
+
+function startPayPalBalancePolling(timeoutMs = 120000) {
+  if (paypalBalancePollTimer) {
+    clearInterval(paypalBalancePollTimer);
+    paypalBalancePollTimer = null;
+  }
+
+  const startedAt = Date.now();
+  paypalBalancePollTimer = setInterval(async () => {
+    const before = lastKnownNftBalance;
+    const mintFeeBefore = lastKnownMintFeeCredits;
+    await refreshUserBalances();
+    if (lastKnownNftBalance > before || lastKnownMintFeeCredits > mintFeeBefore) {
+      updatePayPalStatus('✅ Payment confirmed and account credits updated.');
+      clearInterval(paypalBalancePollTimer);
+      paypalBalancePollTimer = null;
+      return;
+    }
+
+    if (Date.now() - startedAt >= timeoutMs) {
+      updatePayPalStatus('Payment pending. Balances refresh automatically when PayPal IPN is confirmed.');
+      clearInterval(paypalBalancePollTimer);
+      paypalBalancePollTimer = null;
+    }
+  }, 5000);
+}
+
+function setupPayPalFormIntegration() {
+  const form = document.getElementById('paypal-nft-form');
+  const notifyUrlInput = document.getElementById('paypal-notify-url');
+  const returnUrlInput = document.getElementById('paypal-return-url');
+  const cancelUrlInput = document.getElementById('paypal-cancel-url');
+  const purchaseTypeSelect = document.getElementById('paypal-purchase-type');
+  const quantitySelect = document.getElementById('paypal-quantity');
+
+  if (!form || !notifyUrlInput || !returnUrlInput || !cancelUrlInput || !purchaseTypeSelect || !quantitySelect) {
+    return;
+  }
+
+  if (!PAYPAL_BUTTON_IDS.mint_fee) {
+    const mintFeeOption = purchaseTypeSelect.querySelector('option[value="mint_fee"]');
+    if (mintFeeOption) {
+      mintFeeOption.disabled = true;
+      mintFeeOption.textContent = 'Mint/Transfer Fee ($20.00 USD) - setup required';
+    }
+  }
+
+  notifyUrlInput.value = PAYPAL_NOTIFY_URL;
+  returnUrlInput.value = window.location.href;
+  cancelUrlInput.value = window.location.href;
+  syncPayPalPurchaseTypeUI();
+
+  purchaseTypeSelect.addEventListener('change', async () => {
+    syncPayPalPurchaseTypeUI();
+    const userId = await resolveSupabaseUserId();
+    setPayPalCustomField(userId);
+  });
+
+  quantitySelect.addEventListener('change', async () => {
+    const userId = await resolveSupabaseUserId();
+    setPayPalCustomField(userId);
+  });
+
+  form.addEventListener('submit', async (event) => {
+    const userId = await resolveSupabaseUserId();
+    if (!userId) {
+      event.preventDefault();
+      alert('Please sign in before paying with PayPal.');
+      return;
+    }
+
+    const selectedType = purchaseTypeSelect.value === 'mint_fee' ? 'mint_fee' : 'nft_cards';
+    if (selectedType === 'mint_fee' && !PAYPAL_BUTTON_IDS.mint_fee) {
+      event.preventDefault();
+      updatePayPalStatus('Mint fee button is not configured yet. Add PAYPAL_BUTTON_IDS.mint_fee in jame.js.', true);
+      return;
+    }
+
+    setPayPalCustomField(userId);
+    updatePayPalStatus('Waiting for PayPal IPN confirmation…');
+    startPayPalBalancePolling();
+  });
+}
 
    /* ==============================
    OPTIMIZED NFT LOADING FUNCTIONS (CLEAN & WORKING)
@@ -2842,7 +3043,7 @@ async function buyNFT(nftData) {
   if (!account) return alert("Connect wallet first.");
   try {
     const priceEth = nftData.price_eth || 0.1;
-    const totalEth = web3.utils.toWei((Number(priceEth) + 6/1000).toString(), 'ether');
+    const totalEth = web3.utils.toWei((Number(priceEth) + 6 / ETH_USD_DIVISOR_FOR_TRANSFER_FEE).toString(), 'ether');
     await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: totalEth });
 
     await client.from("nfts").update({ owner: account, sold: true }).eq("token_id", nftData.token_id);
@@ -2860,8 +3061,8 @@ async function transferNFT(nftData) {
   const recipient = prompt("Enter recipient wallet address:");
   if (!recipient) return;
   try {
-    const feeEth = web3.utils.toWei((6/1000).toString(), 'ether');
-    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: feeEth });
+    const transferFeeEth = web3.utils.toWei((PAYPAL_MINT_FEE_USD / ETH_USD_DIVISOR_FOR_TRANSFER_FEE).toString(), 'ether');
+    await web3.eth.sendTransaction({ from: account, to: RECEIVER_ADDRESS, value: transferFeeEth });
 
     await nftContract.methods.safeTransferFrom(account, recipient, nftData.token_id).send({ from: account });
 
