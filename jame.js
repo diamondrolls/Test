@@ -560,7 +560,35 @@ class BotManager {
     this.bots.clear();
   }
 }
+// PayPal custom wiring: attaches Supabase Auth UUID into PayPal "custom"
+function wirePaypalCustom() {
+  // Use event delegation so it still works even if the modal is opened later
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
 
+    // Only handle the PayPal form inside the NFT modal
+    if (!form.closest('#paypal-nft-modal')) return;
+
+    const customInput = document.getElementById('paypal-custom');
+    if (!customInput) return;
+
+    // Get logged-in user id (Supabase Auth UUID)
+    const { data, error } = await client.auth.getUser();
+    const userId = data?.user?.id;
+
+    if (error || !userId) {
+      e.preventDefault();
+      alert('You must be logged in before purchasing.');
+      return;
+    }
+
+    const qty = form.querySelector('select[name="os0"]')?.value || '1';
+    const nonce = (crypto?.randomUUID?.() ?? String(Date.now()));
+
+    customInput.value = `${userId}|nft_cards|${qty}|${nonce}`;
+  }, true); // capture=true ensures we run before the browser navigates away
+}
 /* ==============================
    INITIALIZATION
 ============================== */
