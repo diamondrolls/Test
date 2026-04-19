@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
 
   // 6) Credit balance (upsert then increment)
   // Ensure row exists
-  await supabase.from("player_balances").upsert({
+  await supabase.from("player_balances_auth").upsert({
     user_id: userId,
     nft_cards: 0,
     bullets: 100,
