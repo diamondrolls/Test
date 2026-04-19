@@ -574,14 +574,16 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   if (isMobile) {
-    document.getElementById('desktop-instructions').style.display = 'none';
-    document.getElementById('mobile-instructions').style.display = 'block';
-    setupMobileControls();
-  }
-   setupAvatarSelectionAndGameStart();
-     initNftModalNavigation();
-   // PayPal custom + auth UUID
-  wirePaypalCustom();
+  document.getElementById('desktop-instructions').style.display = 'none';
+  document.getElementById('mobile-instructions').style.display = 'block';
+  setupMobileControls();
+}
+
+setupAvatarSelectionAndGameStart();
+initNftModalNavigation();
+
+// PayPal custom + auth UUID
+wirePaypalCustom();
 });
 
    /* ==============================
