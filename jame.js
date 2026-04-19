@@ -580,6 +580,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
    setupAvatarSelectionAndGameStart();
      initNftModalNavigation();
+   (PayPal custom + auth UUID)
+  wirePaypalCustom();
 });
 
    /* ==============================
