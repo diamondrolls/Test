@@ -5,7 +5,6 @@
 // - Idempotent using txn_id
 // - Credits nft_cards balance based on quantity
 
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function parseForm(body: string) {
