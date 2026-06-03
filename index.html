@@ -422,6 +422,12 @@
   #prev-nft-btn { left: 10px; }
   #next-nft-btn { right: 10px; }
 
+  /* NFT Modal Container */
+  #nft-modal > div:nth-child(2) {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
   @media (max-width: 500px) {
     header h1 { font-size: 1.2rem; }
     #instructions { font-size: 0.7rem; bottom: 5px; }
@@ -553,7 +559,7 @@
 <div id="nft-modal" style="display:none; position:fixed; inset:0; z-index:3000;">
   <div style="position:absolute; inset:0; background:rgba(0,0,0,0.6);"></div>
 
-  <div style="position:relative; width:min(520px, 92vw); margin:8vh auto; background:#111; color:#fff; border-radius:12px; padding:16px;">
+  <div style="position:relative; width:min(520px, 92vw); max-height:90vh; margin:5vh auto; background:#111; color:#fff; border-radius:12px; padding:16px; overflow-y:auto;">
 <button id="close-modal" style="float:right; background:#ef4444; position:relative; z-index:20;">X</button>
 <div class="nft-modal-media">
   <button id="prev-nft-btn" class="nft-nav-btn" aria-label="Previous NFT" type="button">&lt;</button>
