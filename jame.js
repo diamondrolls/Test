@@ -2581,54 +2581,85 @@ function animate() {
   const delta = clock.getDelta();
   hoverTime += delta;
 
-  // Player movement
-  if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
-    const moveSpeed = 200 * delta;
+  
+// Player movement
+if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
+  const moveSpeed = 200 * delta;
 
-    const forward = new THREE.Vector3(Math.sin(cameraAngle), 0, Math.cos(cameraAngle));
-    const right = new THREE.Vector3(Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2));
+  const forward = new THREE.Vector3(Math.sin(cameraAngle), 0, Math.cos(cameraAngle));
+  const right = new THREE.Vector3(Math.sin(cameraAngle + Math.PI / 2), 0, Math.cos(cameraAngle + Math.PI / 2));
 
-    const direction = new THREE.Vector3();
-    if (moveForward) direction.add(forward);
-    if (moveBackward) direction.sub(forward);
-    if (moveLeft) direction.sub(right);
-    if (moveRight) direction.add(right);
+  const direction = new THREE.Vector3();
+  if (moveForward) direction.add(forward);
+  if (moveBackward) direction.sub(forward);
+  if (moveLeft) direction.sub(right);
+  if (moveRight) direction.add(right);
 
-    if (direction.lengthSq() > 0) direction.normalize();
+  if (direction.lengthSq() > 0) direction.normalize();
 
-    const newPos = playerAvatar.position.clone().add(direction.multiplyScalar(moveSpeed));
+  const newPos = playerAvatar.position.clone().add(direction.multiplyScalar(moveSpeed));
 
-    // Determine desired Y based on location
-    let targetY = hoverHeight;
+  // ===== IMPROVED HEIGHT CALCULATION =====
+  let targetY = hoverHeight;
+  let onBridge = false;
+  let closestBridgeSegment = null;
+  let closestBridgeDistance = Infinity;
 
-    if (checkIfOnBridge(newPos)) {
-      // Find nearest bridge segment Y
-      let closestY = hoverHeight;
-      for (const seg of bridgeSegments) {
-        if (newPos.distanceTo(seg.position) < 40) {
-          closestY = seg.position.y;
-          break;
-        }
+  // Check bridge segments (with smoothing)
+  for (const seg of bridgeSegments) {
+    const distXZ = Math.sqrt(
+      Math.pow(newPos.x - seg.position.x, 2) + 
+      Math.pow(newPos.z - seg.position.z, 2)
+    );
+    
+    if (distXZ < 25) { // Within 25 units of bridge center
+      onBridge = true;
+      if (distXZ < closestBridgeDistance) {
+        closestBridgeDistance = distXZ;
+        closestBridgeSegment = seg;
       }
-      targetY = closestY + hoverHeight;
-    } else if (checkIfOnUpper(newPos)) {
-      targetY = 750 + hoverHeight;
     }
-
-    // Apply hover bob
-    targetY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
-
-    newPos.y = targetY;
-
-    // Collision check
-    if (!checkCollisions(newPos)) {
-      playerAvatar.position.copy(newPos);
-    }
-
-    // World boundary clamp
-    playerAvatar.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.x));
-    playerAvatar.position.z = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.z));
   }
+
+  if (onBridge && closestBridgeSegment) {
+    // Smoothly interpolate to bridge height
+    targetY = closestBridgeSegment.position.y + hoverHeight;
+    // Smooth blend: closer to bridge = higher influence
+    const blendFactor = 1 - (closestBridgeDistance / 25);
+    targetY = playerAvatar.position.y + (targetY - playerAvatar.position.y) * blendFactor;
+  } else if (checkIfOnUpper(newPos)) {
+    targetY = 750 + hoverHeight;
+  }
+
+  // Apply hover bob
+  targetY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+  newPos.y = targetY;
+
+  // ===== IMPROVED COLLISION CHECK =====
+  // Only check collision with buildings, NOT with bridge segments
+  let hasCollision = false;
+  playerCollider.setFromCenterAndSize(
+    new THREE.Vector3(newPos.x, newPos.y, newPos.z),
+    playerSize
+  );
+
+  for (let i = 0; i < buildingObjects.length; i++) {
+    const buildingBox = new THREE.Box3().setFromObject(buildingObjects[i]);
+    if (playerCollider.intersectsBox(buildingBox)) {
+      hasCollision = true;
+      break;
+    }
+  }
+
+  // Only move if no building collision
+  if (!hasCollision) {
+    playerAvatar.position.copy(newPos);
+  }
+
+  // World boundary clamp
+  playerAvatar.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.x));
+  playerAvatar.position.z = Math.max(-worldBoundary, Math.min(worldBoundary, playerAvatar.position.z));
+}
 
   // Mobile look
   if (isMobile && canMove) {
