@@ -2099,10 +2099,7 @@ function createBridgeGuardrails(bridgeGroup, x1, y1, z1, x2, y2, z2, segmentLeng
   rightRail.rotation.x = -Math.atan2(y2 - y1, Math.sqrt(dx * dx + dz * dz));
   rightRail.castShadow = true;
   bridgeGroup.add(rightRail);
-
-  collisionObjects.push(new THREE.Box3().setFromObject(leftRail));
-  collisionObjects.push(new THREE.Box3().setFromObject(rightRail));
-}
+  }
 
 // Flat roofs for landing / collision
 function createBuildingRoof(x, y, z, width, depth) {
