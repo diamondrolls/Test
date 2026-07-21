@@ -2633,15 +2633,31 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
   newPos.y = targetY;
 
   // ===== IMPROVED COLLISION CHECK =====
-  // Only check collision with buildings, NOT with bridge segments
+  // Only check collision with buildings, NOT with bridge segments.
+  // If the player's Y is clearly above the building top (by margin),
+  // ignore that building's collision (so bridges or high platforms aren't blocked).
   let hasCollision = false;
   playerCollider.setFromCenterAndSize(
     new THREE.Vector3(newPos.x, newPos.y, newPos.z),
     playerSize
   );
 
+  // small vertical margin to avoid snagging on edges
+  const VERTICAL_CLEARANCE = 2.0;
+
   for (let i = 0; i < buildingObjects.length; i++) {
-    const buildingBox = new THREE.Box3().setFromObject(buildingObjects[i]);
+    const building = buildingObjects[i];
+
+    // Use the object's bounding box (expensive to compute each frame; see note below)
+    const buildingBox = new THREE.Box3().setFromObject(building);
+
+    // If the player's target Y is above the top of the building (plus a margin),
+    // treat it as non-colliding so the player can move over the building.
+    if (newPos.y > (buildingBox.max.y + VERTICAL_CLEARANCE)) {
+      continue;
+    }
+
+    // Otherwise, do the normal collision test
     if (playerCollider.intersectsBox(buildingBox)) {
       hasCollision = true;
       break;
