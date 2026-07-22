@@ -2632,24 +2632,16 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
   targetY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
   newPos.y = targetY;
 
-  // ===== IMPROVED COLLISION CHECK =====
-  // Only check collision with buildings, NOT with bridge segments.
-  // If the player's Y is clearly above the building top (by margin),
-  // ignore that building's collision (so bridges or high platforms aren't blocked).
+    // ===== IMPROVED COLLISION CHECK =====
+  // Only check collision with buildings, NOT with bridge segments
   let hasCollision = false;
   playerCollider.setFromCenterAndSize(
     new THREE.Vector3(newPos.x, newPos.y, newPos.z),
     playerSize
   );
 
-  // small vertical margin to avoid snagging on edges
-  const VERTICAL_CLEARANCE = 3.0;
-
   for (let i = 0; i < buildingObjects.length; i++) {
-    const building = buildingObjects[i];
-
-
-    // Otherwise, do the normal collision test
+    const buildingBox = new THREE.Box3().setFromObject(buildingObjects[i]);
     if (playerCollider.intersectsBox(buildingBox)) {
       hasCollision = true;
       break;
