@@ -2643,7 +2643,7 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
   );
 
   // small vertical margin to avoid snagging on edges
-  const VERTICAL_CLEARANCE = 7.0;
+  const VERTICAL_CLEARANCE = 3.0;
 
   for (let i = 0; i < buildingObjects.length; i++) {
     const building = buildingObjects[i];
@@ -2651,7 +2651,7 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
 
     // Otherwise, do the normal collision test
     if (playerCollider.intersectsBox(buildingBox)) {
-      hasCollision = false;
+      hasCollision = true;
       break;
     }
   }
