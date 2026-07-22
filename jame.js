@@ -2643,23 +2643,15 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
   );
 
   // small vertical margin to avoid snagging on edges
-  const VERTICAL_CLEARANCE = 2.0;
+  const VERTICAL_CLEARANCE = 7.0;
 
   for (let i = 0; i < buildingObjects.length; i++) {
     const building = buildingObjects[i];
 
-    // Use the object's bounding box (expensive to compute each frame; see note below)
-    const buildingBox = new THREE.Box3().setFromObject(building);
-
-    // If the player's target Y is above the top of the building (plus a margin),
-    // treat it as non-colliding so the player can move over the building.
-    if (newPos.y > (buildingBox.max.y + VERTICAL_CLEARANCE)) {
-      continue;
-    }
 
     // Otherwise, do the normal collision test
     if (playerCollider.intersectsBox(buildingBox)) {
-      hasCollision = true;
+      hasCollision = false;
       break;
     }
   }
