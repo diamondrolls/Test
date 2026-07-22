@@ -116,10 +116,8 @@
     touch-action: none;
   }
 
-  #mini-map {
-    position: absolute;
-    top: 70px;
-    right: 10px;
+    #mini-map {
+    position: relative;
     width: 120px;
     height: 120px;
     background: rgba(0,0,0,0.5);
@@ -472,14 +470,10 @@
   <div class="mobile-btn" id="shoot-btn" style="background: rgba(239, 68, 68, 0.7);">🔫</div>
 </div>
 <div id="look-controls"></div>
-<div id="mini-map"></div>
 
-<!-- Sidebar Toggle -->
-<button id="sidebar-toggle">☰</button>
-
-<!-- Sidebar with Room Info at the Top -->
-<div id="sidebar">
+  <div id="sidebar">
   <div id="sidebar-content">
+<div id="mini-map"></div>
 
     <!-- Room Info Section -->
     <div class="sidebar-section" id="room-info-section">
