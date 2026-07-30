@@ -2596,41 +2596,48 @@ if (((controls && controls.isLocked) || isMobile) && canMove && playerAvatar) {
 
   const newPos = playerAvatar.position.clone().add(direction.multiplyScalar(moveSpeed));
 
-  // ===== IMPROVED HEIGHT CALCULATION =====
-  let targetY = hoverHeight;
-  let onBridge = false;
-  let closestBridgeSegment = null;
-  let closestBridgeDistance = Infinity;
+  // ===== SMOOTHED HEIGHT CALCULATION =====
+let desiredY = hoverHeight;
+let onBridge = false;
+let closestBridgeSegment = null;
+let closestBridgeDistance = Infinity;
 
-  // Check bridge segments (with smoothing)
-  for (const seg of bridgeSegments) {
-    const distXZ = Math.sqrt(
-      Math.pow(newPos.x - seg.position.x, 2) + 
-      Math.pow(newPos.z - seg.position.z, 2)
-    );
-    
-    if (distXZ < 25) { // Within 25 units of bridge center
-      onBridge = true;
-      if (distXZ < closestBridgeDistance) {
-        closestBridgeDistance = distXZ;
-        closestBridgeSegment = seg;
-      }
+// Find closest bridge segment in XZ plane
+for (const seg of bridgeSegments) {
+  const dx = newPos.x - seg.position.x;
+  const dz = newPos.z - seg.position.z;
+  const distXZ = Math.hypot(dx, dz);
+  const influenceRadius = 40; // tune: larger = transition starts earlier
+  if (distXZ < influenceRadius) {
+    onBridge = true;
+    if (distXZ < closestBridgeDistance) {
+      closestBridgeDistance = distXZ;
+      closestBridgeSegment = seg;
     }
   }
+}
 
-  if (onBridge && closestBridgeSegment) {
-    // Smoothly interpolate to bridge height
-    targetY = closestBridgeSegment.position.y + hoverHeight;
-    // Smooth blend: closer to bridge = higher influence
-    const blendFactor = 1 - (closestBridgeDistance / 25);
-    targetY = playerAvatar.position.y + (targetY - playerAvatar.position.y) * blendFactor;
-  } else if (checkIfOnUpper(newPos)) {
-    targetY = 750 + hoverHeight;
-  }
+if (onBridge && closestBridgeSegment) {
+  // target height above the bridge segment
+  desiredY = closestBridgeSegment.position.y + hoverHeight;
+} else if (checkIfOnUpper(newPos)) {
+  desiredY = 750 + hoverHeight;
+}
 
-  // Apply hover bob
-  targetY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
-  newPos.y = targetY;
+// Apply hover bob to the desired Y
+desiredY += Math.sin(hoverTime * hoverBobSpeed) * hoverBobAmount;
+
+// Smoothly lerp from the current avatar Y toward desiredY
+const verticalLerp = 0.08; // 0.04 = slower, 0.12 = quicker; tweak to taste
+const smoothedY = THREE.MathUtils.lerp(playerAvatar.position.y, desiredY, verticalLerp);
+
+// Clamp per-frame vertical change so a single frame can't jump huge distances
+const maxVerticalStep = 50 * delta; // units/frame (tweak: lower = slower climb)
+const deltaY = smoothedY - playerAvatar.position.y;
+const clampedY = playerAvatar.position.y + Math.max(-maxVerticalStep, Math.min(maxVerticalStep, deltaY));
+
+newPos.y = clampedY;
+// ===== END SMOOTHED HEIGHT CALCULATION =====
 
     // ===== IMPROVED COLLISION CHECK =====
   // Only check collision with buildings, NOT with bridge segments
