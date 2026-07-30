@@ -1937,18 +1937,26 @@ function createCity() {
       let posX = (x - gridSize / 2) * spacing;
       let posZ = (z - gridSize / 2) * spacing - 100;
       const posY = height / 2;
+    
+// Compute radial distance from center (XZ)
+const radial = Math.hypot(posX, posZ);
 
-      // Compute radial distance from center (XZ)
-      const radial = Math.hypot(posX, posZ);
+if (radial < BUILDING_CLEAR_RADIUS) {
+  // Push outward along same angle so grid layout remains visually consistent
+  const angle = Math.atan2(posZ, posX);
+  posX = Math.cos(angle) * BUILDING_CLEAR_RADIUS;
+  posZ = Math.sin(angle) * BUILDING_CLEAR_RADIUS;
+}
 
-      if (radial < BUILDING_CLEAR_RADIUS) {
-        // Push outward along same angle so grid layout remains visually consistent
-        const angle = Math.atan2(posZ, posX);
-        posX = Math.cos(angle) * BUILDING_CLEAR_RADIUS;
-        posZ = Math.sin(angle) * BUILDING_CLEAR_RADIUS;
-        // Keep the original -100 Z offset effect removed because we've repositioned radially
-      }
-
+// Ensure the building isn't too close to any bridge segment.
+// If it's too close, push it further outward along the same angle.
+if (isTooCloseToBridge(posX, posZ)) {
+  const angle = Math.atan2(posZ, posX);
+  // push to at least BUILDING_CLEAR_RADIUS + BRIDGE_CLEARANCE
+  const safeRadius = BUILDING_CLEAR_RADIUS + BRIDGE_CLEARANCE;
+  posX = Math.cos(angle) * safeRadius;
+  posZ = Math.sin(angle) * safeRadius;
+}
       building.position.set(posX, posY, posZ);
 
       building.castShadow = true;
