@@ -1904,6 +1904,11 @@ function createCity() {
   const gridSize = 8;
   const spacing = 150;
 
+  // Minimum radial distance from world center for city buildings.
+  // Any building that would be inside this radius is pushed outward to this radius.
+  // Tune to taste (e.g., 250-400).
+  const BUILDING_CLEAR_RADIUS = 300;
+
   for (let x = 0; x < gridSize; x++) {
     for (let z = 0; z < gridSize; z++) {
       const width = 40 + Math.random() * 30;
@@ -1927,11 +1932,24 @@ function createCity() {
       });
 
       const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
-      building.position.set(
-        (x - gridSize / 2) * spacing,
-        height / 2,
-        (z - gridSize / 2) * spacing - 100
-      );
+
+      // Base grid position (same as before)
+      let posX = (x - gridSize / 2) * spacing;
+      let posZ = (z - gridSize / 2) * spacing - 100;
+      const posY = height / 2;
+
+      // Compute radial distance from center (XZ)
+      const radial = Math.hypot(posX, posZ);
+
+      if (radial < BUILDING_CLEAR_RADIUS) {
+        // Push outward along same angle so grid layout remains visually consistent
+        const angle = Math.atan2(posZ, posX);
+        posX = Math.cos(angle) * BUILDING_CLEAR_RADIUS;
+        posZ = Math.sin(angle) * BUILDING_CLEAR_RADIUS;
+        // Keep the original -100 Z offset effect removed because we've repositioned radially
+      }
+
+      building.position.set(posX, posY, posZ);
 
       building.castShadow = true;
       building.receiveShadow = true;
