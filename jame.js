@@ -2582,9 +2582,8 @@ function createWorld() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // City, bridge, upper platform, boundaries, etc.
-  createCity();
   createMoonBridge();
+  createCity();
   createUpperPlatform();
   createBoundaryWalls();
   createForSaleSign();
