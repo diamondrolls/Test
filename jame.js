@@ -459,10 +459,10 @@ class AssistantBot {
   showInteractionMessage() {
     const messages = [
       "Hello! Need help with NFTs?",
-      "I can assist you with building purchases!",
+      "Shoot the red bot if it comes up to you!",
       "Looking for rare NFTs? Check the column!",
       "Press B to buy more bullets!",
-      "Earn tokens by shooting NFTs!",
+      "Fly by roaming in the bridge zone!",
       "Visit buildings to purchase them!"
     ];
     
