@@ -2632,7 +2632,7 @@ const verticalLerp = 0.08; // 0.04 = slower, 0.12 = quicker; tweak to taste
 const smoothedY = THREE.MathUtils.lerp(playerAvatar.position.y, desiredY, verticalLerp);
 
 // Clamp per-frame vertical change so a single frame can't jump huge distances
-const maxVerticalStep = 50 * delta; // units/frame (tweak: lower = slower climb)
+const maxVerticalStep = 70 * delta; // units/frame (tweak: lower = slower climb)
 const deltaY = smoothedY - playerAvatar.position.y;
 const clampedY = playerAvatar.position.y + Math.max(-maxVerticalStep, Math.min(maxVerticalStep, deltaY));
 
