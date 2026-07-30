@@ -461,7 +461,7 @@ class AssistantBot {
       "Hello! Need help with NFTs?",
       "Shoot the red bot if it comes up to you!",
       "Looking for rare NFTs? Check the column!",
-      "Press B to buy more bullets!",
+      "There is an upper level at the top of the bridge!",
       "Fly by roaming in the bridge zone!",
       "Visit buildings to purchase them!"
     ];
