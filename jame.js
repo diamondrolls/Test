@@ -2139,13 +2139,16 @@ function createBuildingRoof(x, y, z, width, depth) {
   collisionObjects.push(roofBox);
 }
 
-function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buildingHeight) {
+
+  
+  // Door 
+  function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buildingDepth) {
   const doorGroup = new THREE.Group();
   
   // Door dimensions
   const doorWidth = 6;  // Wide enough for player to pass through
   const doorHeight = 12; // Tall enough for player
-  const doorDepth = 0.3; // Thin frame
+  const doorFrameDepth = 0.3; // Thin frame
   
   // Door frame material (metallic)
   const frameMaterial = new THREE.MeshPhysicalMaterial({
@@ -2165,34 +2168,34 @@ function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buil
   
   // Door frame - left
   const leftFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, doorHeight, doorDepth),
+    new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
-  leftFrame.position.set(-doorWidth / 2 - 0.2, doorHeight / 2, buildingDepth / 2);
+  leftFrame.position.set(-doorWidth / 2 - 0.2, doorHeight / 2, 0);
   doorGroup.add(leftFrame);
   
   // Door frame - right
   const rightFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, doorHeight, doorDepth),
+    new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
-  rightFrame.position.set(doorWidth / 2 + 0.2, doorHeight / 2, buildingDepth / 2);
+  rightFrame.position.set(doorWidth / 2 + 0.2, doorHeight / 2, 0);
   doorGroup.add(rightFrame);
   
   // Door frame - top
   const topFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(doorWidth + 1, 0.4, doorDepth),
+    new THREE.BoxGeometry(doorWidth + 1, 0.4, doorFrameDepth),
     frameMaterial
   );
-  topFrame.position.set(0, doorHeight + 0.2, buildingDepth / 2);
+  topFrame.position.set(0, doorHeight + 0.2, 0);
   doorGroup.add(topFrame);
   
   // Door panel (main door)
   const doorPanel = new THREE.Mesh(
-    new THREE.BoxGeometry(doorWidth - 0.5, doorHeight - 0.5, doorDepth),
+    new THREE.BoxGeometry(doorWidth - 0.5, doorHeight - 0.5, doorFrameDepth),
     doorMaterial
   );
-  doorPanel.position.set(0, doorHeight / 2, buildingDepth / 2 + 0.15);
+  doorPanel.position.set(0, doorHeight / 2, 0.15);
   doorPanel.castShadow = true;
   doorGroup.add(doorPanel);
   
@@ -2204,17 +2207,17 @@ function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buil
     roughness: 0.1
   });
   const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-  handle.position.set(doorWidth / 2 - 1, doorHeight / 2, buildingDepth / 2 + 0.3);
+  handle.position.set(doorWidth / 2 - 1, doorHeight / 2, 0.3);
   doorGroup.add(handle);
   
   // Position door at the front center of building
-  doorGroup.position.set(buildingX, buildingY - buildingHeight / 2 + doorHeight / 2, buildingZ);
+  // buildingY already includes the Y position (height/2 from building center)
+  doorGroup.position.set(buildingX, buildingY - doorHeight / 2, buildingZ + buildingDepth / 2);
   
   scene.add(doorGroup);
   
-  // Add door to collision objects so players can't walk through it (optional)
-  const doorBox = new THREE.Box3().setFromObject(doorPanel);
-  collisionObjects.push(doorBox);
+  // Optional: Add only the frame to collision (not the door panel, so players can walk through)
+  // For now, we'll skip adding door collision so players can freely enter
 }
 // Boundary walls (invisible barriers)
 function createBoundaryWalls() {
