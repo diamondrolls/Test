@@ -2298,7 +2298,7 @@ function createForSaleSign() {
 function createPlayerAvatar() {
   const group = new THREE.Group();
 
-  const boardGeometry = new THREE.PlaneGeometry(10, 10);
+  const boardGeometry = new THREE.PlaneGeometry(5, 10);
   const boardMaterial = new THREE.MeshStandardMaterial({
     color: multiplayer ? multiplayer.playerColor : 0xC0C0C0,
     metalness: 0.8,
@@ -2311,7 +2311,7 @@ function createPlayerAvatar() {
   hoverBoard.receiveShadow = true;
   group.add(hoverBoard);
 
-  const underglowGeometry = new THREE.PlaneGeometry(10.5, 10.5);
+  const underglowGeometry = new THREE.PlaneGeometry(5.5, 10.5);
   const underglowMaterial = new THREE.MeshBasicMaterial({
     color: 0x00FF00,
     transparent: true,
