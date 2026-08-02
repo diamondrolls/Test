@@ -1955,7 +1955,7 @@ function createCity() {
       building.receiveShadow = true;
       cityGroup.add(building);
       buildingObjects.push(building);
-
+      createBuildingDoor(posX, posY, posZ, width, depth);
       const buildingBox = new THREE.Box3().setFromObject(building);
       collisionObjects.push(buildingBox);
 
