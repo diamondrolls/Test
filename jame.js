@@ -2146,8 +2146,8 @@ function createBuildingRoof(x, y, z, width, depth) {
   const doorGroup = new THREE.Group();
   
   // Door dimensions
-  const doorWidth = 6;  // Wide enough for player to pass through
-  const doorHeight = 12; // Tall enough for player
+  const doorWidth = 10;  // Wide enough for player to pass through
+  const doorHeight = 17; // Tall enough for player
   const doorFrameDepth = 0.3; // Thin frame
   
   // Door frame material (metallic)
