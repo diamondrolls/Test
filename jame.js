@@ -2146,7 +2146,7 @@ function createBuildingRoof(x, y, z, width, depth) {
   const doorGroup = new THREE.Group();
   
   // Door dimensions
-  const doorWidth = 10;  // Wide enough for player to pass through
+  const doorWidth = 13;  // Wide enough for player to pass through
   const doorHeight = 17; // Tall enough for player
   const doorFrameDepth = 0.3; // Thin frame
   
@@ -2171,7 +2171,7 @@ function createBuildingRoof(x, y, z, width, depth) {
     new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
-  leftFrame.position.set(-doorWidth / 2 - 0.2, doorHeight / 2, 0);
+  leftFrame.position.set(-doorWidth / 5 - 1.2, doorHeight / 5, 1);
   doorGroup.add(leftFrame);
   
   // Door frame - right
@@ -2179,7 +2179,7 @@ function createBuildingRoof(x, y, z, width, depth) {
     new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
-  rightFrame.position.set(doorWidth / 2 + 0.2, doorHeight / 2, 0);
+  rightFrame.position.set(doorWidth / 5 + 1.2, doorHeight / 5, 1);
   doorGroup.add(rightFrame);
   
   // Door frame - top
