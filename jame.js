@@ -2168,7 +2168,7 @@ function createBuildingRoof(x, y, z, width, depth) {
   
   // Door frame - left
   const leftFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
+    new THREE.BoxGeometry(1.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
   leftFrame.position.set(-doorWidth / 5 - 1.2, doorHeight / 5, 1);
@@ -2176,7 +2176,7 @@ function createBuildingRoof(x, y, z, width, depth) {
   
   // Door frame - right
   const rightFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(0.4, doorHeight, doorFrameDepth),
+    new THREE.BoxGeometry(1.4, doorHeight, doorFrameDepth),
     frameMaterial
   );
   rightFrame.position.set(doorWidth / 5 + 1.2, doorHeight / 5, 1);
@@ -2184,18 +2184,18 @@ function createBuildingRoof(x, y, z, width, depth) {
   
   // Door frame - top
   const topFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(doorWidth + 1, 0.4, doorFrameDepth),
+    new THREE.BoxGeometry(doorWidth + 3, 1.4, doorFrameDepth),
     frameMaterial
   );
-  topFrame.position.set(0, doorHeight + 0.2, 0);
+  topFrame.position.set(1, doorHeight + 1.2, 0);
   doorGroup.add(topFrame);
   
   // Door panel (main door)
   const doorPanel = new THREE.Mesh(
-    new THREE.BoxGeometry(doorWidth - 0.5, doorHeight - 0.5, doorFrameDepth),
+    new THREE.BoxGeometry(doorWidth - 1.5, doorHeight - 1.5, doorFrameDepth),
     doorMaterial
   );
-  doorPanel.position.set(0, doorHeight / 2, 0.15);
+  doorPanel.position.set(0, doorHeight / 3, 1.15);
   doorPanel.castShadow = true;
   doorGroup.add(doorPanel);
   
