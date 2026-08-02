@@ -2024,7 +2024,7 @@ function createUpperPlatform() {
       building.receiveShadow = true;
       upperCityGroup.add(building);
       buildingObjects.push(building);
-
+      createBuildingDoor(building.position.x, building.position.y, building.position.z, width, depth);
       const buildingBox = new THREE.Box3().setFromObject(building);
       collisionObjects.push(buildingBox);
 
