@@ -1716,11 +1716,9 @@ function updateBullets() {
 }
 
 function checkBulletCollisions(bullet, bulletIndex) {
-  for (let i = 0; i < buildingObjects.length; i++) {
-    const building = buildingObjects[i];
-    const buildingBox = new THREE.Box3().setFromObject(building);
-    
-    if (buildingBox.containsPoint(bullet.position)) {
+    for (let i = 0; i < collisionObjects.length; i++) {
+    const box = collisionObjects[i];
+    if (box && box.containsPoint(bullet.position)) {
       createBulletImpact(bullet.position);
       bullet.active = false;
       return;
