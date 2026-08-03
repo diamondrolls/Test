@@ -2201,14 +2201,12 @@ function createBuildingRoof(x, y, z, width, depth) {
 
   
   // Door 
-  function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buildingDepth) {
+  function createBuildingDoor(buildingX, buildingY, buildingZ, buildingWidth, buildingDepth, doorWidth = 13, doorHeight = 17) {
   const doorGroup = new THREE.Group();
   
   // Door dimensions
-  const doorWidth = 13;  // Wide enough for player to pass through
-  const doorHeight = 17; // Tall enough for player
   const doorFrameDepth = 0.3; // Thin frame
-  
+  // doorWidth and doorHeight are parameters (defaults above)
   // Door frame material (metallic)
   const frameMaterial = new THREE.MeshPhysicalMaterial({
     color: 0x444444,
