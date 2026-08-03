@@ -2800,9 +2800,9 @@ newPos.y = clampedY;
     playerSize
   );
 
-  for (let i = 0; i < buildingObjects.length; i++) {
-    const buildingBox = new THREE.Box3().setFromObject(buildingObjects[i]);
-    if (playerCollider.intersectsBox(buildingBox)) {
+    for (let i = 0; i < collisionObjects.length; i++) {
+    const box = collisionObjects[i];
+    if (box && playerCollider.intersectsBox(box)) {
       hasCollision = true;
       break;
     }
