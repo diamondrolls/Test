@@ -2081,10 +2081,9 @@ function createUpperPlatform() {
       building.receiveShadow = true;
       upperCityGroup.add(building);
       buildingObjects.push(building);
-            createBuildingDoor(building.position.x, building.position.y, building.position.z, width, depth);
-      // Use same door size as createBuildingDoor (defaults 13x17)
+                  createBuildingDoor(building.position.x, building.position.y, building.position.z, width, depth);
+      // Use split collision boxes (leave doorway clear) — match door size defaults 13x17
       addBuildingCollisionExceptDoor(building, width, height, depth, 13, 17);
-      createBuildingRoof(building.position.x, building.position.y + height / 2, building.position.z, width, depth);
     }
   }
   scene.add(upperCityGroup);
