@@ -1896,7 +1896,66 @@ document.getElementById("connectBtn").addEventListener("click", connectWallet);
 /* ==============================
    WORLD BUILDING & SUPPORT FUNCTIONS
 ============================== */
+/**
+ * Add building collision boxes that leave a doorway clear.
+ * Splits the building collision into three boxes: top, left, right.
+ *
+ * building: THREE.Mesh (assumed centered at building.position, geometry.parameters.width/height/depth present)
+ * buildingWidth/Height/Depth: numbers matching the mesh geometry parameters
+ * doorWidth/doorHeight: size of the opening to leave clear (defaults chosen to match your door)
+ */
+function addBuildingCollisionExceptDoor(building, buildingWidth, buildingHeight, buildingDepth, doorWidth = 13, doorHeight = 17) {
+  const cx = building.position.x;
+  const cy = building.position.y; // center Y
+  const cz = building.position.z;
 
+  // Ensure sensible values
+  const bw = Math.max(0.0001, buildingWidth);
+  const bh = Math.max(0.0001, buildingHeight);
+  const bd = Math.max(0.0001, buildingDepth);
+  const dw = Math.min(doorWidth, bw);
+  const dh = Math.min(doorHeight, bh);
+
+  // TOP BLOCK (above the door)
+  // Height of the top block is the building height minus the door height.
+  const topHeight = Math.max(0, bh - dh);
+  if (topHeight > 0.001) {
+    const topCenterY = cy + (dh / 2) + (topHeight / 2);
+    const topCenter = new THREE.Vector3(cx, topCenterY, cz);
+    const topSize = new THREE.Vector3(bw, topHeight, bd);
+    const topBox = new THREE.Box3().setFromCenterAndSize(topCenter, topSize);
+    collisionObjects.push(topBox);
+  }
+
+  // SIDE BLOCKS (left and right of the door)
+  const sideHeight = dh; // make side blocks same height as the doorway
+  const sideWidth = Math.max(0, (bw - dw) / 2);
+
+  if (sideWidth > 0.001) {
+    // left
+    const leftCenter = new THREE.Vector3(
+      cx - (dw / 2 + sideWidth / 2),
+      cy,
+      cz
+    );
+    const leftSize = new THREE.Vector3(sideWidth, sideHeight, bd);
+    const leftBox = new THREE.Box3().setFromCenterAndSize(leftCenter, leftSize);
+    collisionObjects.push(leftBox);
+
+    // right
+    const rightCenter = new THREE.Vector3(
+      cx + (dw / 2 + sideWidth / 2),
+      cy,
+      cz
+    );
+    const rightBox = new THREE.Box3().setFromCenterAndSize(rightCenter, leftSize.clone());
+    collisionObjects.push(rightBox);
+  } else {
+    // Fallback: if the door is as wide as the building, fall back to full box
+    const fullBox = new THREE.Box3().setFromObject(building);
+    collisionObjects.push(fullBox);
+  }
+}
 // Ground + main city
 function createCity() {
   const cityGroup = new THREE.Group();
