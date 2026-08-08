@@ -452,12 +452,47 @@ class AssistantBot {
     this.checkPlayerProximity();
   }
 
+    checkPlayerProximity() {
+    if (!this.multiplayer || !window.playerAvatar) return;
+
+    const playerPos = window.playerAvatar.position;
+    const distance = this.currentPosition.distanceTo(playerPos);
+
+    // If player is inside a building, do not chase or interact for privacy.
+    const playerInside = isPositionInsideAnyBuilding(playerPos);
+    if (playerInside) {
+      if (this.state !== 'roaming') {
+        this.state = 'roaming';
+        this.lastStateChange = Date.now();
+        this.setRandomTarget();
+      }
+      return;
+    }
+
+    if (distance < this.interactionRange && this.state !== 'interacting') {
+      this.state = 'interacting';
+      this.lastStateChange = Date.now();
+      this.showInteractionMessage();
+    } else if (distance < this.detectionRange && this.state === 'roaming') {
+      this.state = 'chasing';
+      this.lastStateChange = Date.now();
+    }
+  }
+
   updateRoaming() {
     // Move towards target
     const direction = new THREE.Vector3()
       .subVectors(this.targetPosition, this.currentPosition)
       .normalize();
-    
+
+    const nextPosition = this.currentPosition.clone().add(direction.clone().multiplyScalar(this.moveSpeed));
+
+    // If next step would place the bot inside a building, abandon target and pick another
+    if (wouldEnterBuilding(nextPosition)) {
+      this.setRandomTarget();
+      return;
+    }
+
     this.currentPosition.add(direction.multiplyScalar(this.moveSpeed));
 
     // If close to target, set new random target
@@ -470,42 +505,68 @@ class AssistantBot {
     if (!this.multiplayer || !window.playerAvatar) return;
 
     const playerPos = window.playerAvatar.position.clone();
+
+    // If the player is inside a building, back off and roam instead of following inside.
+    if (isPositionInsideAnyBuilding(playerPos)) {
+      this.state = 'roaming';
+      this.setRandomTarget();
+      return;
+    }
+
     const direction = new THREE.Vector3()
       .subVectors(playerPos, this.currentPosition)
       .normalize();
-    
+
     // Maintain some distance from player
     const desiredDistance = 8;
-    const targetPos = playerPos.clone().sub(direction.multiplyScalar(desiredDistance));
+    let targetPos = playerPos.clone().sub(direction.multiplyScalar(desiredDistance));
     targetPos.y = Math.max(5, playerPos.y + 3); // Fly slightly above player
 
+    // If the computed targetPos would be inside a building, clamp to an exterior point near the building
+    if (isPositionInsideAnyBuilding(targetPos)) {
+      const exterior = getClosestExteriorPointToPos(playerPos);
+      if (exterior) targetPos.copy(exterior);
+      else {
+        // fallback: don't move this tick
+        return;
+      }
+    }
+
     const moveDirection = new THREE.Vector3()
-      .subVectors(targetPos, this.currentPosition)
-      .normalize();
-    
+      .subVectors(targetPos, this.currentPosition);
+
+    if (moveDirection.lengthSq() === 0) return;
+    moveDirection.normalize();
+
+    const nextPosition = this.currentPosition.clone().add(moveDirection.multiplyScalar(this.moveSpeed * 1.5));
+
+    // Prevent stepping into buildings
+    if (wouldEnterBuilding(nextPosition)) {
+      // instead reposition to a guard position outside the building
+      const exterior = getClosestExteriorPointToPos(playerPos);
+      if (exterior) {
+        // move towards exterior point slowly
+        const approach = new THREE.Vector3().subVectors(exterior, this.currentPosition).normalize();
+        this.currentPosition.add(approach.multiplyScalar(this.moveSpeed * 0.9));
+      } else {
+        // if we cannot find an exterior, pick a random target to avoid getting stuck
+        this.setRandomTarget();
+      }
+      return;
+    }
+
+    // proceed with chasing movement
     this.currentPosition.add(moveDirection.multiplyScalar(this.moveSpeed * 1.5));
   }
+
+  
 
   updateInteracting() {
     // Hover in place with more pronounced bobbing
     this.group.position.y += Math.sin(Date.now() * 0.005) * 0.3;
   }
 
-  checkPlayerProximity() {
-    if (!this.multiplayer || !window.playerAvatar) return;
-
-    const playerPos = window.playerAvatar.position;
-    const distance = this.currentPosition.distanceTo(playerPos);
-
-    if (distance < this.interactionRange && this.state !== 'interacting') {
-      this.state = 'interacting';
-      this.lastStateChange = Date.now();
-      this.showInteractionMessage();
-    } else if (distance < this.detectionRange && this.state === 'roaming') {
-      this.state = 'chasing';
-      this.lastStateChange = Date.now();
-    }
-  }
+  
 
   changeState() {
     const states = ['roaming', 'chasing'];
