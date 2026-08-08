@@ -224,7 +224,72 @@ const textureLoader = new THREE.TextureLoader(); // ← THIS WAS MISSING!
 /* ==============================
    ASSISTANT BOT ROAMING SYSTEM
 ============================== */
+// ===== Building privacy helpers =====
+// Returns true if the given THREE.Vector3 position is inside any building's interior.
+function isPositionInsideAnyBuilding(pos) {
+  if (!pos || !buildingObjects || buildingObjects.length === 0) return false;
 
+  for (let i = 0; i < buildingObjects.length; i++) {
+    const b = buildingObjects[i];
+    if (!b || !b.geometry) continue;
+
+    // Use building geometry parameters if available (fast) else fallback to setFromObject.
+    let box;
+    const params = b.geometry.parameters || {};
+    if (params.width !== undefined && params.height !== undefined && params.depth !== undefined) {
+      // building.position is the center, geometry parameters are half widths from center in typical BoxGeometry creation
+      const size = new THREE.Vector3(params.width, params.height, params.depth);
+      box = new THREE.Box3().setFromCenterAndSize(b.position.clone(), size);
+    } else {
+      // fallback (slower)
+      box = new THREE.Box3().setFromObject(b);
+    }
+
+    if (box.containsPoint(pos)) return true;
+  }
+  return false;
+}
+
+// If the player is inside a building, compute a nearby exterior point just outside the building
+// so bots can approach but won't enter. Returns a THREE.Vector3 or null if none found.
+function getClosestExteriorPointToPos(pos) {
+  if (!pos || !buildingObjects || buildingObjects.length === 0) return null;
+
+  for (let i = 0; i < buildingObjects.length; i++) {
+    const b = buildingObjects[i];
+    if (!b || !b.geometry) continue;
+
+    let box;
+    const params = b.geometry.parameters || {};
+    if (params.width !== undefined && params.height !== undefined && params.depth !== undefined) {
+      const size = new THREE.Vector3(params.width, params.height, params.depth);
+      box = new THREE.Box3().setFromCenterAndSize(b.position.clone(), size);
+    } else {
+      box = new THREE.Box3().setFromObject(b);
+    }
+
+    if (box.containsPoint(pos)) {
+      // clampPoint gives the closest point on/in the box to pos
+      const closest = box.clampPoint(pos.clone(), new THREE.Vector3());
+      // direction from building center to player (if zero-length, nudge on X axis)
+      const dir = pos.clone().sub(b.position);
+      if (dir.lengthSq() === 0) dir.set(1, 0, 0);
+      dir.normalize();
+
+      // margin to place bot slightly outside the box
+      const margin = 6; // tune as needed
+      const exterior = closest.clone().add(dir.multiplyScalar(margin));
+      return exterior;
+    }
+  }
+
+  return null;
+}
+
+// Will this position land a bot inside a building? (quick wrapper)
+function wouldEnterBuilding(targetPos) {
+  return isPositionInsideAnyBuilding(targetPos);
+}
 class AssistantBot {
   constructor(scene, multiplayer, config = {}) {
     this.scene = scene;
