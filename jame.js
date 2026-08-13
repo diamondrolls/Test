@@ -3726,7 +3726,150 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+/* ==============================
+   Avatar Creation Metrics
+============================== */
+/**
+ * Creates a boy avatar with a black hoodie
+ */
+function createBoyAvatarWithHoodie() {
+  const group = new THREE.Group();
 
+  // Black hoodie body (torso)
+  const hoodieBodyGeometry = new THREE.CylinderGeometry(0.55, 0.5, 1.6, 16);
+  const hoodieMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a }); // Black
+  const hoodieBody = new THREE.Mesh(hoodieBodyGeometry, hoodieMaterial);
+  hoodieBody.position.y = 1.5;
+  hoodieBody.castShadow = true;
+  group.add(hoodieBody);
+
+  // Hoodie sleeves (arms)
+  const sleeveGeometry = new THREE.CylinderGeometry(0.25, 0.2, 1.2, 12);
+  
+  const leftSleeve = new THREE.Mesh(sleeveGeometry, hoodieMaterial);
+  leftSleeve.position.set(-0.65, 1.7, 0);
+  leftSleeve.rotation.z = 0.3;
+  leftSleeve.castShadow = true;
+  group.add(leftSleeve);
+
+  const rightSleeve = new THREE.Mesh(sleeveGeometry, hoodieMaterial);
+  rightSleeve.position.set(0.65, 1.7, 0);
+  rightSleeve.rotation.z = -0.3;
+  rightSleeve.castShadow = true;
+  group.add(rightSleeve);
+
+  // Hood (rounded top)
+  const hoodGeometry = new THREE.SphereGeometry(0.65, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6);
+  const hood = new THREE.Mesh(hoodGeometry, hoodieMaterial);
+  hood.position.y = 3.0;
+  hood.scale.set(1, 0.8, 0.9);
+  hood.castShadow = true;
+  group.add(hood);
+
+  // Head (skin tone inside the hood)
+  const headGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+  const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
+  const head = new THREE.Mesh(headGeometry, skinMaterial);
+  head.position.y = 2.85;
+  head.castShadow = true;
+  group.add(head);
+
+  // Face features (simple dots for eyes)
+  const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+  const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+  
+  const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  leftEye.position.set(-0.15, 2.95, 0.48);
+  group.add(leftEye);
+
+  const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  rightEye.position.set(0.15, 2.95, 0.48);
+  group.add(rightEye);
+
+  // Hoodie pocket (optional detail)
+  const pocketGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.05);
+  const pocketMaterial = new THREE.MeshLambertMaterial({ color: 0x0a0a0a });
+  const pocket = new THREE.Mesh(pocketGeometry, pocketMaterial);
+  pocket.position.set(0, 1.3, 0.52);
+  group.add(pocket);
+
+  return group;
+}
+
+/**
+ * Creates a girl avatar with a pink hoodie
+ */
+function createGirlAvatarWithHoodie() {
+  const group = new THREE.Group();
+
+  // Pink hoodie body (torso)
+  const hoodieBodyGeometry = new THREE.CylinderGeometry(0.5, 0.45, 1.5, 16);
+  const pinkHoodieMaterial = new THREE.MeshLambertMaterial({ color: 0xEC4899 }); // Pink
+  const hoodieBody = new THREE.Mesh(hoodieBodyGeometry, pinkHoodieMaterial);
+  hoodieBody.position.y = 1.5;
+  hoodieBody.castShadow = true;
+  group.add(hoodieBody);
+
+  // Hoodie sleeves (arms)
+  const sleeveGeometry = new THREE.CylinderGeometry(0.22, 0.18, 1.1, 12);
+  
+  const leftSleeve = new THREE.Mesh(sleeveGeometry, pinkHoodieMaterial);
+  leftSleeve.position.set(-0.6, 1.65, 0);
+  leftSleeve.rotation.z = 0.3;
+  leftSleeve.castShadow = true;
+  group.add(leftSleeve);
+
+  const rightSleeve = new THREE.Mesh(sleeveGeometry, pinkHoodieMaterial);
+  rightSleeve.position.set(0.6, 1.65, 0);
+  rightSleeve.rotation.z = -0.3;
+  rightSleeve.castShadow = true;
+  group.add(rightSleeve);
+
+  // Hood (rounded top)
+  const hoodGeometry = new THREE.SphereGeometry(0.6, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6);
+  const hood = new THREE.Mesh(hoodGeometry, pinkHoodieMaterial);
+  hood.position.y = 2.95;
+  hood.scale.set(0.95, 0.75, 0.85);
+  hood.castShadow = true;
+  group.add(hood);
+
+  // Head (skin tone inside the hood)
+  const headGeometry = new THREE.SphereGeometry(0.48, 16, 16);
+  const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xFCD34D });
+  const head = new THREE.Mesh(headGeometry, skinMaterial);
+  head.position.y = 2.8;
+  head.castShadow = true;
+  group.add(head);
+
+  // Hair (white/light colored - visible behind hood)
+  const hairGeometry = new THREE.SphereGeometry(0.52, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const hairMaterial = new THREE.MeshLambertMaterial({ color: 0xF5E6D3 });
+  const hair = new THREE.Mesh(hairGeometry, hairMaterial);
+  hair.position.y = 3.1;
+  hair.scale.set(1.15, 0.6, 0.9);
+  group.add(hair);
+
+  // Face features (simple dots for eyes)
+  const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+  const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+  
+  const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  leftEye.position.set(-0.14, 2.9, 0.46);
+  group.add(leftEye);
+
+  const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+  rightEye.position.set(0.14, 2.9, 0.46);
+  group.add(rightEye);
+
+  // Hoodie pocket (optional detail)
+  const pocketGeometry = new THREE.BoxGeometry(0.28, 0.38, 0.05);
+  const pocketMaterial = new THREE.MeshLambertMaterial({ color: 0xE63E86 });
+  const pocket = new THREE.Mesh(pocketGeometry, pocketMaterial);
+  pocket.position.set(0, 1.25, 0.48);
+  group.add(pocket);
+
+  return group;
+     }
 /* ==============================
    Final initialization message
 ============================== */
