@@ -2503,33 +2503,11 @@ function createPlayerAvatar() {
   group.add(underglow);
 
   let avatar;
-  if (selectedAvatar === 'boy') {
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
-      new THREE.MeshLambertMaterial({ color: 0x3B82F6 })
-    );
-    body.position.y = 1.5;
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 8, 8),
-      new THREE.MeshLambertMaterial({ color: 0xFCD34D })
-    );
-    head.position.y = 2.8;
-    avatar = new THREE.Group();
-    avatar.add(body, head);
-  } else if (selectedAvatar === 'girl') {
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8),
-      new THREE.MeshLambertMaterial({ color: 0xEC4899 })
-    );
-    body.position.y = 1.5;
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 8, 8),
-      new THREE.MeshLambertMaterial({ color: 0xFCD34D })
-    );
-    head.position.y = 2.8;
-    avatar = new THREE.Group();
-    avatar.add(body, head);
-  }
+if (selectedAvatar === 'boy') {
+  avatar = createBoyAvatarWithHoodie();
+} else if (selectedAvatar === 'girl') {
+  avatar = createGirlAvatarWithHoodie();
+}
 
   if (avatar) {
     avatar.position.y = 0.1;
