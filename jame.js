@@ -145,7 +145,7 @@ let currentBuildingInteraction = null;
 // World settings
 let worldSize = 1500;
 let worldBoundary = worldSize / 2 - 50;
-
+let upperPlatformBox = null;
 // 3D scene variables
 let scene, camera, renderer, controls;
 let nftObjects = [], environmentObjects = [], buildingObjects = [];
