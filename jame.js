@@ -2617,6 +2617,13 @@ function checkIfOnBridge(position) {
 
 // Helper: is player on upper platform?
 function checkIfOnUpper(position) {
+  if (upperPlatformBox) {
+    // We only care about XZ inclusion; use a test point at platform Y so small vertical jitter doesn't matter
+    const testPoint = new THREE.Vector3(position.x, 750, position.z);
+    return upperPlatformBox.containsPoint(testPoint);
+  }
+
+  // fallback: original bounds (kept for safety)
   return position.y > 700 && position.y < 800 &&
          position.x > -200 && position.x < 300 &&
          position.z > -300 && position.z < 300;
