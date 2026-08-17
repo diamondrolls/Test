@@ -2213,6 +2213,11 @@ function createUpperPlatform() {
     }
   }
   scene.add(upperCityGroup);
+     collisionObjects.push(upperPlatformBox);
+  upperPlatformBox = new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(50, 750, 0),
+    new THREE.Vector3(500, 2, 500) 
+  );
 }
 
 // Spiral moon bridge
