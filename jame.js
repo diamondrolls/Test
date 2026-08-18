@@ -2085,7 +2085,7 @@ function createCity() {
   const cityGroup = new THREE.Group();
   const buildingColors = [0x3B82F6, 0xEF4444, 0x10B981, 0xF59E0B, 0x8B5CF6];
   const gridSize = 8;
-  const spacing = 150;
+  const spacing = 250;
 
   // Minimum radial distance from world center for city buildings.
   // Any building that would be inside this radius is pushed outward to this radius.
